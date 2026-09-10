@@ -2,6 +2,7 @@ import { ConsultationModal } from "@/components/consultation-modal";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { ModalProvider } from "@/components/modal-provider";
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Manrope, Unbounded } from "next/font/google";
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Footer />
           <ConsultationModal />
         </ModalProvider>
+        <Analytics />
         <SpeedInsights />
       </body>
     </html>
