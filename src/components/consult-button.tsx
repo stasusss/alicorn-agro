@@ -9,6 +9,7 @@ type ConsultButtonProps = {
   variant?: "primary" | "secondary" | "light";
   className?: string;
   showArrow?: boolean;
+  onClick?: () => void;
 };
 
 const variants = {
@@ -25,14 +26,18 @@ export function ConsultButton({
   variant = "primary",
   className = "",
   showArrow = false,
+  onClick,
 }: ConsultButtonProps) {
   const { openModal } = useModal();
 
   return (
     <button
       type="button"
-      onClick={openModal}
-      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold tracking-wide transition-colors duration-200 ${variants[variant]} ${className}`}
+      onClick={() => {
+        onClick?.();
+        openModal();
+      }}
+      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold tracking-wide transition-all duration-200 hover:scale-[1.02] ${variants[variant]} ${className}`}
     >
       {children}
       {showArrow ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}

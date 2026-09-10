@@ -1,4 +1,7 @@
-import { Providers } from "@/components/providers";
+import { ConsultationModal } from "@/components/consultation-modal";
+import { Footer } from "@/components/footer";
+import { Header } from "@/components/header";
+import { ModalProvider } from "@/components/modal-provider";
 import type { Metadata } from "next";
 import { Manrope, Unbounded } from "next/font/google";
 import "./globals.css";
@@ -31,7 +34,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${manrope.variable} ${unbounded.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-cream font-sans text-ink">
-        <Providers>{children}</Providers>
+        <ModalProvider>
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+          <ConsultationModal />
+        </ModalProvider>
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 "use client";
 
-import { Logo } from "@/components/logo";
 import { ConsultButton } from "@/components/consult-button";
+import { Logo } from "@/components/logo";
 import { navItems } from "@/lib/site";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -30,8 +30,8 @@ export function Header() {
   return (
     <header
       className={`sticky top-0 z-40 transition-all duration-300 ${
-        scrolled
-          ? "border-b border-forest/10 bg-cream/90 backdrop-blur-xl"
+        scrolled || open
+          ? "border-b border-forest/10 bg-cream/95 backdrop-blur-xl"
           : "border-b border-transparent bg-cream/70 backdrop-blur-md"
       }`}
     >
@@ -45,7 +45,7 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 hover:scale-[1.03] ${
                   active
                     ? "bg-mint text-forest-dark"
                     : "text-ink-muted hover:bg-mint/70 hover:text-forest-dark"
@@ -63,8 +63,9 @@ export function Header() {
 
         <button
           type="button"
-          className="rounded-full p-2 text-forest-dark lg:hidden"
+          className="rounded-full p-2 text-forest-dark transition-colors hover:bg-mint lg:hidden"
           aria-expanded={open}
+          aria-controls="mobile-navigation"
           aria-label={open ? "Закрити меню" : "Відкрити меню"}
           onClick={() => setOpen((value) => !value)}
         >
@@ -74,31 +75,40 @@ export function Header() {
 
       <AnimatePresence>
         {open ? (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-t border-forest/10 bg-cream lg:hidden"
+          <motion.nav
+            id="mobile-navigation"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+            className="border-t border-forest/10 bg-cream px-4 py-4 lg:hidden"
+            aria-label="Мобільна навігація"
           >
-            <nav className="flex flex-col gap-1 px-4 py-4" aria-label="Мобільна навігація">
-              {navItems.map((item) => {
+            <div className="flex flex-col gap-1">
+              {navItems.map((item, index) => {
                 const active = pathname === item.href;
                 return (
-                  <Link
+                  <motion.div
                     key={item.href}
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className={`rounded-2xl px-4 py-3 text-base font-medium ${
-                      active ? "bg-mint text-forest-dark" : "text-ink"
-                    }`}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.04 * index }}
                   >
-                    {item.label}
-                  </Link>
+                    <Link
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      className={`block rounded-2xl px-4 py-3 text-base font-medium transition-colors ${
+                        active ? "bg-mint text-forest-dark" : "text-ink hover:bg-mint/60"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </motion.div>
                 );
               })}
-              <ConsultButton className="mt-3 w-full" />
-            </nav>
-          </motion.div>
+              <ConsultButton className="mt-3 w-full" onClick={() => setOpen(false)} />
+            </div>
+          </motion.nav>
         ) : null}
       </AnimatePresence>
     </header>

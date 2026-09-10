@@ -62,7 +62,7 @@ export function Footer() {
 
       <div className="border-t border-white/10">
         <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-cream/50 sm:px-6 lg:px-8">
-          © {new Date().getFullYear()} Alicorn Agro. Усі права захищені.
+          © 2026 Alicorn Agro. Усі права захищені.
         </p>
       </div>
     </footer>

@@ -17,11 +17,7 @@ export function Hero() {
     <section className="relative overflow-hidden bg-forest-deeper text-cream">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(900px 480px at 85% 15%, rgba(42,122,74,0.35), transparent 60%), radial-gradient(700px 420px at 10% 90%, rgba(201,169,106,0.12), transparent 55%)",
-        }}
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_480px_at_85%_15%,rgba(42,122,74,0.35),transparent_60%),radial-gradient(700px_420px_at_10%_90%,rgba(201,169,106,0.12),transparent_55%)]"
       />
       <GreenhouseWireframe />
 
