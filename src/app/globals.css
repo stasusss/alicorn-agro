@@ -44,6 +44,22 @@ select {
   font: inherit;
 }
 
+model-viewer.product-model-viewer {
+  display: block;
+  width: 100%;
+  max-width: 600px;
+  height: 400px;
+  margin: auto;
+  background: transparent;
+  border-radius: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  model-viewer.product-model-viewer {
+    height: 500px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

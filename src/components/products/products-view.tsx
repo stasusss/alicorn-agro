@@ -1,6 +1,7 @@
 "use client";
 
 import { ConsultButton } from "@/components/consult-button";
+import { ProductModelViewer } from "@/components/products/product-model-viewer";
 import { Reveal } from "@/components/reveal";
 import {
   productMetrics,
@@ -31,8 +32,8 @@ export function ProductsView() {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(800px_420px_at_85%_10%,rgba(42,122,74,0.34),transparent_62%)]"
         />
-        <div className="relative mx-auto grid max-w-6xl items-end gap-10 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:px-8 lg:py-24">
-          <div className="lg:col-span-8">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:px-8 lg:py-24">
+          <div className="lg:col-span-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-wheat">
               Продукція
             </p>
@@ -53,15 +54,22 @@ export function ProductsView() {
               обладнанням.
             </p>
           </div>
-          <div className="lg:col-span-4">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-wheat">
-                Активний аспіраційний канал
-              </p>
-              <p className="mt-3 font-display text-4xl tracking-tight">IP65</p>
-              <p className="mt-2 text-sm text-cream/65">
-                Захист електронного відсіку від бризок, аерозолів і пилу.
-              </p>
+          <div className="lg:col-span-6">
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-2 backdrop-blur-sm sm:p-3">
+              <ProductModelViewer />
+              <div className="pointer-events-none absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-auto">
+                <div className="w-fit max-w-full rounded-2xl border border-white/10 bg-forest-deeper/75 px-4 py-3 backdrop-blur-md">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-wheat">
+                    Активний аспіраційний канал
+                  </p>
+                  <p className="mt-1 font-display text-2xl tracking-tight">
+                    IP65
+                  </p>
+                  <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-cream/65">
+                    Захист електронного відсіку від бризок, аерозолів і пилу.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
