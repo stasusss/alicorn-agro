@@ -11,6 +11,7 @@ export const navItems = [
   { href: "/about", label: "Про нас" },
   { href: "/services", label: "Послуги" },
   { href: "/products", label: "Продукція" },
+  { href: "/login", label: "Кабінет" },
 ] as const;
 
 export const services = [

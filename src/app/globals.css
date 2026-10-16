@@ -73,3 +73,113 @@ model-viewer.product-model-viewer {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Cabinet — light, unobtrusive surface inspired by apple.com */
+.cabinet {
+  --cab-bg: #f5f5f7;
+  --cab-surface: #ffffff;
+  --cab-text: #1d1d1f;
+  --cab-muted: #86868b;
+  --cab-line: rgba(0, 0, 0, 0.08);
+  --cab-accent: #1d1d1f;
+  --cab-accent-soft: #0071e3;
+  background: var(--cab-bg);
+  color: var(--cab-text);
+}
+
+.cabinet .cab-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--cab-text);
+}
+
+.cabinet .cab-subtitle {
+  margin-top: 0.5rem;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  color: var(--cab-muted);
+}
+
+.cabinet .cab-section-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--cab-text);
+}
+
+.cabinet .cab-panel {
+  background: var(--cab-surface);
+  border-radius: 1.25rem;
+  border: 1px solid var(--cab-line);
+}
+
+.cabinet .cab-input {
+  width: 100%;
+  margin-top: 0.375rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--cab-line);
+  background: #fbfbfd;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9375rem;
+  color: var(--cab-text);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cabinet .cab-input:focus {
+  border-color: rgba(0, 113, 227, 0.55);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+}
+
+.cabinet .cab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 980px;
+  background: var(--cab-accent);
+  color: #fff;
+  padding: 0.7rem 1.35rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.cabinet .cab-btn:hover {
+  opacity: 0.88;
+}
+
+.cabinet .cab-btn:disabled {
+  opacity: 0.45;
+}
+
+.cabinet .cab-btn-ghost {
+  border-radius: 980px;
+  border: 1px solid var(--cab-line);
+  background: transparent;
+  color: var(--cab-text);
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8125rem;
+  transition: background 0.15s ease;
+}
+
+.cabinet .cab-btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cabinet .cab-link {
+  color: var(--cab-accent-soft);
+  font-size: 0.8125rem;
+}
+
+.cabinet .cab-link:hover {
+  text-decoration: underline;
+}
+
+.cabinet .uplot,
+.cabinet .uplot text {
+  font-family: var(--font-sans) !important;
+}

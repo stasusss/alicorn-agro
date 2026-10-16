@@ -1,7 +1,3 @@
-import { ConsultationModal } from "@/components/consultation-modal";
-import { Footer } from "@/components/footer";
-import { Header } from "@/components/header";
-import { ModalProvider } from "@/components/modal-provider";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
@@ -36,12 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${manrope.variable} ${unbounded.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-cream font-sans text-ink">
-        <ModalProvider>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <ConsultationModal />
-        </ModalProvider>
+        {children}
         <Analytics />
         <SpeedInsights />
       </body>
