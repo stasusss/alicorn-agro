@@ -1,5 +1,6 @@
 "use client";
 
+import { ALERT_TEMPLATES } from "@/lib/cabinet/alert-templates";
 import { metricLabels, type MetricKey } from "@/lib/climate";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -76,7 +77,7 @@ export function AlertsPanel({
     setSaving(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Не вдалося створити алерт");
+      setError(data.error ?? "Не вдалося створити сповіщення");
       return;
     }
     const created = (await res.json()) as Rule;
@@ -101,10 +102,43 @@ export function AlertsPanel({
     setRules((prev) => prev.filter((r) => r.id !== id));
   }
 
+  function applyTemplate(templateId: string) {
+    const t = ALERT_TEMPLATES.find((x) => x.id === templateId);
+    if (!t) return;
+    setForm((f) => ({
+      ...f,
+      name: t.name,
+      metric: t.metric,
+      operator: t.operator,
+      threshold: t.threshold,
+      targetType: t.targetType,
+    }));
+  }
+
   return (
     <div className="space-y-12">
+      <section className="space-y-3">
+        <h2 className="cab-section-title">Шаблони під культуру</h2>
+        <p className="text-[13px] text-[#86868b]">
+          Натисніть шаблон — поля форми заповняться. Додайте Telegram/email і збережіть.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {ALERT_TEMPLATES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => applyTemplate(t.id)}
+              className="cab-btn-ghost"
+              title={t.hint}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <form onSubmit={createRule} className="cab-panel space-y-4 p-6 sm:p-8">
-        <h2 className="cab-section-title">Новий алерт</h2>
+        <h2 className="cab-section-title">Нове сповіщення</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-[13px] text-[#86868b]">
             Назва
@@ -212,14 +246,14 @@ export function AlertsPanel({
         </div>
         {error && <p className="text-[13px] text-[#ff3b30]">{error}</p>}
         <button type="submit" disabled={saving} className="cab-btn">
-          {saving ? "Збереження…" : "Додати алерт"}
+          {saving ? "Збереження…" : "Додати сповіщення"}
         </button>
       </form>
 
       <section className="space-y-4">
         <h2 className="cab-section-title">Активні правила</h2>
         {rules.length === 0 && (
-          <p className="text-[13px] text-[#86868b]">Поки немає алертів.</p>
+          <p className="text-[13px] text-[#86868b]">Поки немає сповіщень.</p>
         )}
         <ul className="space-y-3">
           {rules.map((rule) => (

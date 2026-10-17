@@ -1,7 +1,16 @@
 import { Heatmap } from "@/components/cabinet/heatmap";
+import { QuickReportButton } from "@/components/cabinet/quick-report-button";
 import { auth } from "@/lib/auth";
 import {
+  evaluateOverviewStatus,
+  relativeTimeUk,
+} from "@/lib/cabinet/climate-status";
+import {
   getDailyAvgTemperatureBySensor,
+  getDataOutages,
+  getDayOverDayTempCompare,
+  getFreshestReadingTs,
+  getGatewayStatus,
   getLatestReadingsBySensor,
   getTemperatureAggregates,
 } from "@/lib/cabinet/queries";
@@ -23,11 +32,33 @@ export default async function CabinetOverviewPage() {
   if (!session?.user?.organizationId) redirect("/login");
 
   const orgId = session.user.organizationId;
-  const [latest, aggregates, dailyBySensor] = await Promise.all([
-    getLatestReadingsBySensor(orgId),
-    getTemperatureAggregates(orgId),
-    getDailyAvgTemperatureBySensor(orgId),
-  ]);
+  const now = new Date();
+  const outageFrom = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+
+  const [latest, aggregates, dailyBySensor, gateway, freshestTs, dayCompare, outages] =
+    await Promise.all([
+      getLatestReadingsBySensor(orgId),
+      getTemperatureAggregates(orgId),
+      getDailyAvgTemperatureBySensor(orgId),
+      getGatewayStatus(orgId),
+      getFreshestReadingTs(orgId),
+      getDayOverDayTempCompare(orgId),
+      getDataOutages(orgId, outageFrom, now, 20),
+    ]);
+
+  const status = evaluateOverviewStatus(
+    latest.map(({ sensor, reading }) => ({
+      sensorId: sensor.id,
+      name: sensor.name,
+      temperature: reading?.temperature ?? null,
+      humidity: reading?.humidity ?? null,
+      vpd: reading?.vpd ?? null,
+      ts: reading?.ts ?? null,
+    })),
+    { gatewayLastSeen: gateway.lastSeenAt, now },
+  );
+
+  const issueById = new Map(status.problemZones.map((z) => [z.sensorId, z.severity]));
 
   const heatmapPoints = latest.map(({ sensor, reading }) => ({
     id: sensor.id,
@@ -36,21 +67,132 @@ export default async function CabinetOverviewPage() {
     y: sensor.positionY,
     currentTemp: reading?.temperature ?? null,
     dailyAvgTemp: dailyBySensor.get(sensor.id) ?? null,
+    issueSeverity: issueById.get(sensor.id) ?? null,
   }));
 
+  const statusStyles = {
+    ok: "border-[#34c759]/25 bg-[#34c759]/10",
+    attention: "border-[#ff9f0a]/30 bg-[#ff9f0a]/10",
+    critical: "border-[#ff3b30]/30 bg-[#ff3b30]/10",
+    offline: "border-[#86868b]/30 bg-[#86868b]/10",
+    empty: "border-black/10 bg-white",
+  } as const;
+
+  const statusDot = {
+    ok: "bg-[#34c759]",
+    attention: "bg-[#ff9f0a]",
+    critical: "bg-[#ff3b30]",
+    offline: "bg-[#86868b]",
+    empty: "bg-[#d2d2d7]",
+  } as const;
+
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <h1 className="cab-title">Огляд теплиці</h1>
-          <p className="cab-subtitle">
-            Поточні показники та середні температури по всіх датчиках.
-          </p>
+          <p className="cab-subtitle">Що важливо зараз — стан, ключові цифри, карта зон.</p>
         </div>
-        <Link href="/cabinet/export" className="cab-btn shrink-0 self-start sm:self-auto">
-          Замовити звіт
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <QuickReportButton />
+          <Link href="/cabinet/export" className="cab-btn-ghost">
+            Звіти
+          </Link>
+        </div>
       </header>
+
+      {/* 1 + 4 + 9: status, gateway freshness, hero metrics */}
+      <div
+        className={`cab-panel border px-5 py-5 sm:px-6 ${statusStyles[status.level]}`}
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex gap-3">
+            <span
+              className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${statusDot[status.level]}`}
+            />
+            <div>
+              <p className="font-display text-xl font-semibold tracking-tight text-[#1d1d1f]">
+                {status.title}
+              </p>
+              <p className="mt-1 text-[14px] text-[#1d1d1f]/75">{status.detail}</p>
+            </div>
+          </div>
+          <div className="text-[12px] text-[#86868b] sm:text-right">
+            <p>
+              Дані:{" "}
+              <span className="font-medium text-[#1d1d1f]">
+                {relativeTimeUk(freshestTs, now)}
+              </span>
+            </p>
+            <p className="mt-0.5">
+              Шлюз:{" "}
+              <span className="font-medium text-[#1d1d1f]">
+                {gateway.lastSeenAt
+                  ? relativeTimeUk(gateway.lastSeenAt, now)
+                  : "ще не виходив (демо CSV)"}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="cab-panel px-5 py-7 sm:px-7">
+          <p className="text-[12px] font-medium tracking-wide text-[#86868b]">
+            Середня температура зараз
+          </p>
+          <p className="mt-2 font-display text-[3rem] font-semibold leading-none tracking-tight text-[#1d1d1f] sm:text-[3.5rem]">
+            {fmt(status.avgTemp)}
+            <span className="ml-1 text-[1.4rem] font-medium text-[#86868b]">°C</span>
+          </p>
+          {dayCompare?.delta !== null && dayCompare?.delta !== undefined && (
+            <p className="mt-3 text-[13px] text-[#86868b]">
+              vs учора о цій годині:{" "}
+              <span
+                className={
+                  dayCompare.delta > 0.15
+                    ? "font-medium text-[#ff9f0a]"
+                    : dayCompare.delta < -0.15
+                      ? "font-medium text-[#0071e3]"
+                      : "font-medium text-[#1d1d1f]"
+                }
+              >
+                {dayCompare.delta > 0 ? "+" : ""}
+                {dayCompare.delta.toFixed(1)} °C
+              </span>
+            </p>
+          )}
+        </div>
+        <div className="cab-panel px-5 py-7 sm:px-7">
+          <p className="text-[12px] font-medium tracking-wide text-[#86868b]">
+            Найпроблемніша зона
+          </p>
+          {status.worstZone ? (
+            <>
+              <p className="mt-2 font-display text-[2rem] font-semibold tracking-tight text-[#1d1d1f] sm:text-[2.4rem]">
+                {status.worstZone.name}
+              </p>
+              <p className="mt-2 text-[13px] text-[#86868b]">
+                {status.worstZone.reasons.join("; ")}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 font-display text-[2rem] font-semibold tracking-tight text-[#34c759] sm:text-[2.4rem]">
+                Немає
+              </p>
+              <p className="mt-2 text-[13px] text-[#86868b]">Усі зони в комфорті</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 5: estimated RH disclaimer */}
+      <p className="rounded-2xl border border-[#ff9f0a]/25 bg-[#ff9f0a]/08 px-4 py-3 text-[13px] text-[#1d1d1f]/80">
+        <strong className="font-semibold">Увага:</strong> вологість, VPD і точка роси зараз
+        оцінені з температури (у тестовому CSV немає RH). Для агрорішень дочекайтесь даних з
+        реальних датчиків вологості.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
         <StatCard label="Середньодобова" value={`${fmt(aggregates.dailyAvg)}°`} unit="C" />
@@ -68,7 +210,56 @@ export default async function CabinetOverviewPage() {
         />
       </div>
 
+      {/* 2: problem zones on map */}
       <Heatmap points={heatmapPoints} />
+
+      {status.problemZones.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="cab-section-title">Проблемні зони</h2>
+          <ul className="space-y-2">
+            {status.problemZones.map((z) => (
+              <li
+                key={z.sensorId}
+                className={`cab-panel flex items-start gap-3 px-4 py-3 text-[13px] ${
+                  z.severity === "critical" ? "border-[#ff3b30]/25" : "border-[#ff9f0a]/25"
+                }`}
+              >
+                <span
+                  className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                    z.severity === "critical" ? "bg-[#ff3b30]" : "bg-[#ff9f0a]"
+                  }`}
+                />
+                <div>
+                  <p className="font-medium text-[#1d1d1f]">{z.name}</p>
+                  <p className="text-[#86868b]">{z.reasons.join("; ")}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* 12: outages */}
+      <section className="space-y-3">
+        <h2 className="cab-section-title">Пропуски даних (7 днів)</h2>
+        {outages.length === 0 ? (
+          <p className="text-[13px] text-[#86868b]">
+            Значних розривів (&gt;20 хв) не виявлено.
+          </p>
+        ) : (
+          <ul className="cab-panel divide-y divide-black/[0.05]">
+            {outages.map((o, i) => (
+              <li key={i} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-[13px]">
+                <span className="text-[#1d1d1f]">
+                  {o.from.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" })} →{" "}
+                  {o.to.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" })}
+                </span>
+                <span className="text-[#86868b]">{o.minutes} хв без даних</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="space-y-4">
         <h2 className="cab-section-title">Поточні значення</h2>
@@ -78,35 +269,60 @@ export default async function CabinetOverviewPage() {
               <tr className="border-b border-black/[0.06] text-[#86868b]">
                 <th className="px-5 py-3.5 font-medium">Датчик</th>
                 <th className="px-5 py-3.5 font-medium">T °C</th>
-                <th className="px-5 py-3.5 font-medium">RH %</th>
-                <th className="px-5 py-3.5 font-medium">VPD</th>
-                <th className="px-5 py-3.5 font-medium">Dew °C</th>
+                <th className="px-5 py-3.5 font-medium">RH %*</th>
+                <th className="px-5 py-3.5 font-medium">VPD*</th>
+                <th className="px-5 py-3.5 font-medium">Dew*</th>
                 <th className="px-5 py-3.5 font-medium">Оновлено</th>
               </tr>
             </thead>
             <tbody>
-              {latest.map(({ sensor, reading }) => (
-                <tr
-                  key={sensor.id}
-                  className="border-b border-black/[0.04] last:border-0"
-                >
-                  <td className="px-5 py-3.5 font-medium text-[#1d1d1f]">{sensor.name}</td>
-                  <td className="px-5 py-3.5 tabular-nums">{fmt(reading?.temperature ?? null)}</td>
-                  <td className="px-5 py-3.5 tabular-nums">{fmt(reading?.humidity ?? null)}</td>
-                  <td className="px-5 py-3.5 tabular-nums">{fmt(reading?.vpd ?? null, 2)}</td>
-                  <td className="px-5 py-3.5 tabular-nums">{fmt(reading?.dewPoint ?? null)}</td>
-                  <td className="px-5 py-3.5 text-[#86868b]">
-                    {reading?.ts
-                      ? new Date(reading.ts).toLocaleString("uk-UA", {
-                          timeZone: "Europe/Kyiv",
-                        })
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
+              {latest.map(({ sensor, reading }) => {
+                const issue = issueById.get(sensor.id);
+                return (
+                  <tr
+                    key={sensor.id}
+                    className={`border-b border-black/[0.04] last:border-0 ${
+                      issue === "critical"
+                        ? "bg-[#ff3b30]/06"
+                        : issue === "warn"
+                          ? "bg-[#ff9f0a]/06"
+                          : ""
+                    }`}
+                  >
+                    <td className="px-5 py-3.5 font-medium text-[#1d1d1f]">
+                      {sensor.name}
+                      {issue && (
+                        <span className="ml-2 text-[11px] font-normal text-[#ff9f0a]">
+                          увага
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5 tabular-nums">
+                      {fmt(reading?.temperature ?? null)}
+                    </td>
+                    <td className="px-5 py-3.5 tabular-nums text-[#86868b]">
+                      {fmt(reading?.humidity ?? null)}
+                    </td>
+                    <td className="px-5 py-3.5 tabular-nums text-[#86868b]">
+                      {fmt(reading?.vpd ?? null, 2)}
+                    </td>
+                    <td className="px-5 py-3.5 tabular-nums text-[#86868b]">
+                      {fmt(reading?.dewPoint ?? null)}
+                    </td>
+                    <td className="px-5 py-3.5 text-[#86868b]">
+                      {reading?.ts
+                        ? new Date(reading.ts).toLocaleString("uk-UA", {
+                            timeZone: "Europe/Kyiv",
+                          })
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+        <p className="text-[12px] text-[#86868b]">* оцінено з температури (тестові дані)</p>
       </section>
     </div>
   );
@@ -126,7 +342,7 @@ function StatCard({
   return (
     <div className="cab-panel px-5 py-6 sm:px-6">
       <p className="text-[12px] font-medium tracking-wide text-[#86868b]">{label}</p>
-      <p className="mt-2 font-display text-[2rem] font-semibold tracking-tight text-[#1d1d1f] sm:text-[2.25rem]">
+      <p className="mt-1 font-display text-[2rem] font-semibold tracking-tight text-[#1d1d1f] sm:text-[2.25rem]">
         {value}
         {unit && <span className="ml-0.5 text-[1.1rem] font-medium text-[#86868b]">{unit}</span>}
       </p>

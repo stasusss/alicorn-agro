@@ -10,21 +10,26 @@ function toLocalInput(d: Date) {
 export function ReportForm() {
   const [from, setFrom] = useState(() => {
     const d = new Date();
-    d.setHours(d.getHours() - 12);
+    d.setHours(0, 0, 0, 0);
     return toLocalInput(d);
   });
   const [to, setTo] = useState(() => toLocalInput(new Date()));
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<"html" | "pdf" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function orderReport() {
-    setLoading(true);
+  async function orderReport(format: "html" | "pdf") {
+    setLoading(format);
     setError(null);
     try {
       const params = new URLSearchParams({
         from: new Date(from).toISOString(),
         to: new Date(to).toISOString(),
+        format,
       });
+      if (format === "pdf") {
+        window.open(`/api/cabinet/report?${params}`, "_blank", "noopener,noreferrer");
+        return;
+      }
       const res = await fetch(`/api/cabinet/report?${params}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -44,7 +49,7 @@ export function ReportForm() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Помилка");
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   }
 
@@ -55,7 +60,7 @@ export function ReportForm() {
           Аналітичний звіт
         </h2>
         <p className="mt-1 text-[13px] text-[#86868b]">
-          Середні T / RH / VPD, проблемні зони й періоди, короткий висновок.
+          Середні T / RH / VPD, проблемні зони, висновки та дії. PDF — через діалог друку браузера.
         </p>
       </div>
       <label className="block text-[13px] text-[#86868b]">
@@ -77,14 +82,24 @@ export function ReportForm() {
         />
       </label>
       {error && <p className="text-[13px] text-[#ff3b30]">{error}</p>}
-      <button
-        type="button"
-        onClick={orderReport}
-        disabled={loading}
-        className="cab-btn mt-2"
-      >
-        {loading ? "Формуємо…" : "Замовити звіт"}
-      </button>
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => orderReport("html")}
+          disabled={!!loading}
+          className="cab-btn"
+        >
+          {loading === "html" ? "Формуємо…" : "Замовити звіт"}
+        </button>
+        <button
+          type="button"
+          onClick={() => orderReport("pdf")}
+          disabled={!!loading}
+          className="cab-btn-ghost"
+        >
+          {loading === "pdf" ? "…" : "Зберегти PDF"}
+        </button>
+      </div>
     </div>
   );
 }

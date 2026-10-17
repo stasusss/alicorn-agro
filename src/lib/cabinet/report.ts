@@ -50,11 +50,18 @@ export type AnalyticsReport = {
     avgDewPoint: number;
     minTemp: number;
     maxTemp: number;
+    /** Max − min among all readings in the period */
+    maxTempRange: number;
+    /** Largest spatial spread (max−min across sensors) in any single timestamp */
+    maxFrameDelta: number;
+    /** Mean absolute deviation of sensor average T from greenhouse mean */
+    avgAbsDeviation: number;
   };
   sensors: ReportSensorStats[];
   problemZones: ProblemZone[];
   problemPeriods: ProblemPeriod[];
   conclusion: string;
+  actions: string[];
 };
 
 function avg(nums: number[]) {
@@ -88,16 +95,29 @@ function outsideIdeal(
   return flags;
 }
 
-function buildConclusion(report: Omit<AnalyticsReport, "conclusion">): string {
+function buildConclusionAndActions(
+  report: Omit<AnalyticsReport, "conclusion" | "actions">,
+): { conclusion: string; actions: string[] } {
   const parts: string[] = [];
+  const actions: string[] = [];
   const { overall, problemZones, problemPeriods, sampleCount } = report;
 
   if (sampleCount === 0) {
-    return "За вибраний період немає даних з датчиків. Перевірте роботу шлюзу та наявність вимірювань.";
+    return {
+      conclusion:
+        "За вибраний період немає даних з датчиків. Перевірте роботу шлюзу та наявність вимірювань.",
+      actions: [
+        "Перевірити живлення і Wi‑Fi / мобільний роутер шлюзу",
+        "Після відновлення зв’язку дочекатися backfill буфера",
+      ],
+    };
   }
 
   parts.push(
-    `За період середня температура склала ${round1(overall.avgTemp)} °C, вологість ${round1(overall.avgHumidity)} %, VPD ${round2(overall.avgVpd)} kPa.`,
+    `За період середня температура склала ${round1(overall.avgTemp)} °C, вологість ${round1(overall.avgHumidity)} % (оцінка), VPD ${round2(overall.avgVpd)} kPa (оцінка).`,
+  );
+  parts.push(
+    `Максимальна різниця температури за період — ${round1(overall.maxTempRange)} °C; найбільша різниця в кадрі — ${round1(overall.maxFrameDelta)} °C; середнє відхилення зон — ${round1(overall.avgAbsDeviation)} °C.`,
   );
 
   const tOk =
@@ -110,20 +130,34 @@ function buildConclusion(report: Omit<AnalyticsReport, "conclusion">): string {
     parts.push(
       "Загалом мікроклімат виглядає стабільним: середні показники в комфортному діапазоні, виражених проблемних зон і періодів не виявлено.",
     );
+    actions.push("Продовжувати моніторинг без змін режиму");
+    actions.push("Зберегти звіт для порівняння з наступним тижнем");
   } else {
     if (!tOk) {
-      parts.push(
-        overall.avgTemp < IDEAL.temperature.min
-          ? "Середня температура нижча за комфортний діапазон — варто перевірити обігрів і нічні провали."
-          : "Середня температура вища за комфортний діапазон — зверніть увагу на вентиляцію та затінення в пікові години.",
-      );
+      if (overall.avgTemp < IDEAL.temperature.min) {
+        parts.push(
+          "Середня температура нижча за комфортний діапазон — варто перевірити обігрів і нічні провали.",
+        );
+        actions.push("Перевірити обігрів / нічний сетпоінт, особливо перед світанком");
+      } else {
+        parts.push(
+          "Середня температура вища за комфортний діапазон — зверніть увагу на вентиляцію та затінення в пікові години.",
+        );
+        actions.push("Увімкнути / посилити вентиляцію або затінення в години піку");
+      }
     }
     if (!vOk) {
-      parts.push(
-        overall.avgVpd < IDEAL.vpd.min
-          ? "Низький VPD вказує на «важке» вологе підвітря — ризик хвороб і слабкої транспірації."
-          : "Підвищений VPD свідчить про сухіший режим — рослини можуть відчувати водний стрес.",
-      );
+      if (overall.avgVpd < IDEAL.vpd.min) {
+        parts.push(
+          "Низький VPD вказує на «важке» вологе підвітря — ризик хвороб і слабкої транспірації.",
+        );
+        actions.push("Підняти циркуляцію повітря, знизити RH (вентиляція/осушення)");
+      } else {
+        parts.push(
+          "Підвищений VPD свідчить про сухіший режим — рослини можуть відчувати водний стрес.",
+        );
+        actions.push("Збільшити вологість туманом / полити і перевірити полив");
+      }
     }
     if (problemZones.length > 0) {
       const names = problemZones
@@ -131,21 +165,23 @@ function buildConclusion(report: Omit<AnalyticsReport, "conclusion">): string {
         .map((z) => z.name)
         .join(", ");
       parts.push(
-        `Найбільш проблемні зони: ${names}${problemZones.length > 3 ? " та інші" : ""}. Рекомендуємо перевірити циркуляцію повітря і розташування датчиків у цих точках.`,
+        `Найбільш проблемні зони: ${names}${problemZones.length > 3 ? " та інші" : ""}.`,
       );
+      actions.push(`Оглянути зону ${problemZones[0].name}: циркуляція, екрани, датчик`);
     }
     if (problemPeriods.length > 0) {
       parts.push(
-        `Виявлено ${problemPeriods.length} проблемних інтервал(ів) у часі — деталі в розділі нижче. Звірте їх із роботою вентиляції/обігріву.`,
+        `Виявлено ${problemPeriods.length} проблемних інтервал(ів) у часі — звірте з роботою вентиляції/обігріву.`,
       );
+      actions.push("Звірити графік обладнання з проблемними годинами у звіті");
     }
   }
 
   parts.push(
-    "Це автоматичний огляд для оперативного контролю; для агрономічних рішень варто враховувати культуру, фазу росту та технологічну карту.",
+    "Це автоматичний огляд; RH/VPD у тестовому наборі оцінені з T. Для фінальних рішень враховуйте культуру і фазу росту.",
   );
 
-  return parts.join(" ");
+  return { conclusion: parts.join(" "), actions: actions.slice(0, 4) };
 }
 
 export async function buildAnalyticsReport(
@@ -289,7 +325,30 @@ export async function buildAnalyticsReport(
     });
   }
 
-  const draft: Omit<AnalyticsReport, "conclusion"> = {
+  // Per-timestamp spatial spread (max−min across sensors at same ts)
+  const byTs = new Map<number, number[]>();
+  for (const row of rows) {
+    const key = row.ts.getTime();
+    const list = byTs.get(key) ?? [];
+    list.push(row.temperature);
+    byTs.set(key, list);
+  }
+  let maxFrameDelta = 0;
+  for (const temps of byTs.values()) {
+    if (temps.length < 2) continue;
+    maxFrameDelta = Math.max(maxFrameDelta, Math.max(...temps) - Math.min(...temps));
+  }
+
+  const sensorAvgs = sensorStats.map((s) => s.avgTemp);
+  const avgAbsDeviation =
+    sensorAvgs.length === 0
+      ? 0
+      : sensorAvgs.reduce((a, t) => a + Math.abs(t - meanTemp), 0) / sensorAvgs.length;
+
+  const minTemp = allTemps.length ? Math.min(...allTemps) : 0;
+  const maxTemp = allTemps.length ? Math.max(...allTemps) : 0;
+
+  const draft: Omit<AnalyticsReport, "conclusion" | "actions"> = {
     organizationName: org?.name ?? "Теплиця",
     from: from.toISOString(),
     to: to.toISOString(),
@@ -300,15 +359,19 @@ export async function buildAnalyticsReport(
       avgHumidity: round1(avg(allHum) ?? 0),
       avgVpd: round2(avg(allVpd) ?? 0),
       avgDewPoint: round1(avg(allDew) ?? 0),
-      minTemp: allTemps.length ? round1(Math.min(...allTemps)) : 0,
-      maxTemp: allTemps.length ? round1(Math.max(...allTemps)) : 0,
+      minTemp: round1(minTemp),
+      maxTemp: round1(maxTemp),
+      maxTempRange: round1(maxTemp - minTemp),
+      maxFrameDelta: round1(maxFrameDelta),
+      avgAbsDeviation: round1(avgAbsDeviation),
     },
     sensors: sensorStats,
     problemZones,
     problemPeriods,
   };
 
-  return { ...draft, conclusion: buildConclusion(draft) };
+  const { conclusion, actions } = buildConclusionAndActions(draft);
+  return { ...draft, conclusion, actions };
 }
 
 function esc(s: string) {
@@ -319,7 +382,7 @@ function esc(s: string) {
     .replaceAll('"', "&quot;");
 }
 
-export function renderReportHtml(report: AnalyticsReport): string {
+export function renderReportHtml(report: AnalyticsReport, opts?: { autoPrint?: boolean }): string {
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" });
 
@@ -343,6 +406,13 @@ export function renderReportHtml(report: AnalyticsReport): string {
           )
           .join("")}</tbody></table>`;
 
+  const actionRows =
+    report.actions.length === 0
+      ? ""
+      : `<h2>Що зробити</h2><ol class="actions">${report.actions
+          .map((a) => `<li>${esc(a)}</li>`)
+          .join("")}</ol>`;
+
   const sensorRows = report.sensors
     .map(
       (s) => `<tr>
@@ -356,6 +426,14 @@ export function renderReportHtml(report: AnalyticsReport): string {
       </tr>`,
     )
     .join("");
+
+  const printBtn = opts?.autoPrint
+    ? ""
+    : `<button class="print-btn" onclick="window.print()">Зберегти як PDF</button>`;
+
+  const autoPrint = opts?.autoPrint
+    ? `<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),350));</script>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="uk">
@@ -380,9 +458,18 @@ export function renderReportHtml(report: AnalyticsReport): string {
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid rgba(0,0,0,.06); }
     th { color: #86868b; font-weight: 500; }
     .conclusion { background: #f5f5f7; border-radius: 14px; padding: 18px 20px; font-size: 15px; }
+    ol.actions { padding-left: 20px; }
+    ol.actions li { margin: 8px 0; font-size: 15px; }
     ul { padding-left: 18px; }
     li { margin: 6px 0; }
     .footer { margin-top: 36px; font-size: 12px; color: #86868b; }
+    .print-btn { margin-top: 16px; border: 0; border-radius: 980px; background: #1d1d1f; color: #fff;
+      padding: 10px 18px; font-size: 14px; cursor: pointer; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .wrap { border: 0; border-radius: 0; padding: 0; max-width: none; }
+      .print-btn { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -390,16 +477,28 @@ export function renderReportHtml(report: AnalyticsReport): string {
     <h1>Аналітичний звіт</h1>
     <p class="muted">${esc(report.organizationName)} · період ${esc(fmt(report.from))} — ${esc(fmt(report.to))}<br/>
     Згенеровано ${esc(fmt(report.generatedAt))} · вимірювань: ${report.sampleCount}</p>
+    ${printBtn}
 
     <h2>Середні показники</h2>
     <div class="grid">
       <div class="card"><span>Температура</span><b>${report.overall.avgTemp} °C</b></div>
-      <div class="card"><span>Вологість</span><b>${report.overall.avgHumidity} %</b></div>
-      <div class="card"><span>VPD</span><b>${report.overall.avgVpd} kPa</b></div>
-      <div class="card"><span>Точка роси</span><b>${report.overall.avgDewPoint} °C</b></div>
+      <div class="card"><span>Вологість*</span><b>${report.overall.avgHumidity} %</b></div>
+      <div class="card"><span>VPD*</span><b>${report.overall.avgVpd} kPa</b></div>
+      <div class="card"><span>Точка роси*</span><b>${report.overall.avgDewPoint} °C</b></div>
     </div>
-    <p class="muted" style="margin-top:12px">Діапазон T: ${report.overall.minTemp} … ${report.overall.maxTemp} °C.
-      Орієнтир комфорту: T ${IDEAL.temperature.min}–${IDEAL.temperature.max} °C, RH ${IDEAL.humidity.min}–${IDEAL.humidity.max} %, VPD ${IDEAL.vpd.min}–${IDEAL.vpd.max} kPa.</p>
+    <p class="muted" style="margin-top:12px">* RH / VPD / dew у тестових даних оцінені з температури.
+      Діапазон T: ${report.overall.minTemp} … ${report.overall.maxTemp} °C.</p>
+
+    <h2>Різниці температури</h2>
+    <div class="grid">
+      <div class="card"><span>Макс. різниця за період (мін→макс)</span><b>${report.overall.maxTempRange} °C</b></div>
+      <div class="card"><span>Макс. різниця в кадрі</span><b>${report.overall.maxFrameDelta} °C</b></div>
+      <div class="card"><span>Середнє відхилення зон</span><b>${report.overall.avgAbsDeviation} °C</b></div>
+      <div class="card"><span>Діапазон T</span><b>${report.overall.minTemp}…${report.overall.maxTemp}</b></div>
+    </div>
+    <p class="muted" style="margin-top:12px">Макс. різниця за період — між найхолоднішим і найтеплішим вимірюванням.
+      Макс. різниця в кадрі — найбільший розкид між датчиками в один момент часу.
+      Середнє відхилення — середнє |T зони − середня по теплиці|.</p>
 
     <h2>По датчиках</h2>
     ${
@@ -419,8 +518,11 @@ export function renderReportHtml(report: AnalyticsReport): string {
     <h2>Висновок</h2>
     <div class="conclusion">${esc(report.conclusion)}</div>
 
+    ${actionRows}
+
     <p class="footer">Alicorn Agro · автоматичний звіт кабінету телеметрії</p>
   </div>
+  ${autoPrint}
 </body>
 </html>`;
 }

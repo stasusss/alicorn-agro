@@ -6,6 +6,7 @@ import { z } from "zod";
 const querySchema = z.object({
   from: z.string().datetime({ offset: true }),
   to: z.string().datetime({ offset: true }),
+  format: z.enum(["html", "pdf"]).optional(),
 });
 
 export async function GET(request: Request) {
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
   const parsed = querySchema.safeParse({
     from: url.searchParams.get("from"),
     to: url.searchParams.get("to"),
+    format: url.searchParams.get("format") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -34,16 +36,18 @@ export async function GET(request: Request) {
   }
 
   const report = await buildAnalyticsReport(session.user.organizationId, from, to);
-  const html = renderReportHtml(report);
+  const asPdf = parsed.data.format === "pdf";
+  const html = renderReportHtml(report, { autoPrint: asPdf });
   const stamp = from.toISOString().slice(0, 10);
   const stampTo = to.toISOString().slice(0, 10);
   const filename = `alicorn-report-${stamp}_${stampTo}.html`;
 
+  // PDF = print-optimized HTML (browser "Save as PDF"). True binary PDF needs a heavier renderer.
   return new NextResponse(html, {
     status: 200,
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": asPdf ? "inline" : `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
     },
   });

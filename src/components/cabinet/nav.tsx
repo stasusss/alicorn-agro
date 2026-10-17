@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/cabinet", label: "Огляд" },
   { href: "/cabinet/charts", label: "Графіки" },
-  { href: "/cabinet/alerts", label: "Алерти" },
+  { href: "/cabinet/alerts", label: "Сповіщення" },
   { href: "/cabinet/export", label: "Звіти" },
 ];
 

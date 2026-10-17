@@ -45,9 +45,21 @@ async function sendTelegram(chatId: string, text: string) {
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: false,
+    }),
   });
   return res.ok;
+}
+
+function cabinetUrl() {
+  return (process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://alicorn-agro-rho.vercel.app").replace(
+    /\/$/,
+    "",
+  );
 }
 
 async function sendEmail(to: string, subject: string, text: string) {
@@ -154,21 +166,42 @@ export async function evaluateAlertsForOrganization(organizationId: string) {
 
     const unit = metricUnits[rule.metric as MetricKey];
     const label = metricLabels[rule.metric as MetricKey];
-    const message = `Алерт «${rule.name}»: ${label} (${scopeLabel}) = ${value.toFixed(2)} ${unit} (поріг ${rule.operator} ${rule.threshold})`;
+    const link = `${cabinetUrl()}/cabinet`;
+    const plain = `Сповіщення «${rule.name}»: ${label} (${scopeLabel}) = ${value.toFixed(2)} ${unit} (поріг ${rule.operator} ${rule.threshold})`;
+    const telegram = [
+      `🔔 <b>Alicorn Agro · сповіщення</b>`,
+      `<b>${escapeHtml(rule.name)}</b>`,
+      `${escapeHtml(label)} (${escapeHtml(scopeLabel)}): <b>${value.toFixed(2)} ${escapeHtml(unit)}</b>`,
+      `Поріг: ${escapeHtml(rule.operator)} ${rule.threshold}`,
+      ``,
+      `👉 <a href="${link}">Відкрити кабінет / карту</a>`,
+    ].join("\n");
+    const emailBody = `${plain}\n\nКабінет: ${link}`;
 
     let delivered = false;
     if (rule.channel === "telegram") {
-      delivered = await sendTelegram(rule.destination, message);
+      delivered = await sendTelegram(rule.destination, telegram);
     } else {
-      delivered = await sendEmail(rule.destination, `Alicorn Agro: ${rule.name}`, message);
+      delivered = await sendEmail(
+        rule.destination,
+        `Alicorn Agro · сповіщення: ${rule.name}`,
+        emailBody,
+      );
     }
 
     await db.insert(alertEvents).values({
       alertRuleId: rule.id,
       organizationId,
       value,
-      message,
+      message: plain,
       delivered,
     });
   }
+}
+
+function escapeHtml(s: string) {
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }

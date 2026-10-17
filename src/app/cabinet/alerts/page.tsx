@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Алерти",
+  title: "Сповіщення",
 };
 
 export default async function AlertsPage() {
@@ -32,7 +32,7 @@ export default async function AlertsPage() {
   return (
     <div className="space-y-10">
       <header className="max-w-2xl">
-        <h1 className="cab-title">Алерти</h1>
+        <h1 className="cab-title">Сповіщення</h1>
         <p className="cab-subtitle">
           Telegram або email при виході показників за поріг (датчик або середнє).
         </p>
