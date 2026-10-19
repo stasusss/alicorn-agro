@@ -20,7 +20,8 @@ export default async function ChartsPage() {
       <header className="max-w-2xl">
         <h1 className="cab-title">Графіки</h1>
         <p className="cab-subtitle">
-          Оберіть датчик або накладіть усі серії для порівняння зон теплиці.
+          Кожна точка — згладжене середнє за 5 хвилин. Оберіть датчик або накладіть усі серії
+          для порівняння зон теплиці.
         </p>
       </header>
       <div className="space-y-5">

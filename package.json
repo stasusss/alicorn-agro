@@ -13,7 +13,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:seed-demo": "tsx scripts/seed-demo-readings.ts",
     "db:import-csv": "tsx scripts/import-csv-readings.ts",
-    "test:ingest": "tsx scripts/test-ingest.ts"
+    "test:ingest": "tsx scripts/test-ingest.ts",
+    "test:smoothing": "tsx scripts/test-smoothing.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",

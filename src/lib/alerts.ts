@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
-import { alertEvents, alertRules, readings, sensors } from "@/db/schema";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { alertEvents, alertRules, sensors } from "@/db/schema";
+import { getSmoothedLatestReading } from "@/lib/cabinet/queries";
+import { and, eq, gte } from "drizzle-orm";
 import { Resend } from "resend";
 import type { MetricKey } from "./climate";
 import { metricLabels, metricUnits } from "./climate";
@@ -96,12 +97,7 @@ export async function evaluateAlertsForOrganization(organizationId: string) {
   >();
 
   for (const sensor of orgSensors) {
-    const [latest] = await db
-      .select()
-      .from(readings)
-      .where(eq(readings.sensorId, sensor.id))
-      .orderBy(desc(readings.ts))
-      .limit(1);
+    const latest = await getSmoothedLatestReading(sensor.id);
     if (latest) {
       latestBySensor.set(sensor.id, {
         temperature: latest.temperature,

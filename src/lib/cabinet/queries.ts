@@ -1,7 +1,8 @@
 import { getDb } from "@/db";
 import { gateways, organizations, readings, sensors } from "@/db/schema";
+import { bucketStartMs, DISPLAY_WINDOW_MS, smoothedWindowAverage, smoothTimeSeries } from "@/lib/cabinet/smoothing";
 import { getDayNightWindow, getUtcDayBounds } from "@/lib/sun";
-import { and, asc, avg, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, avg, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
 
 export async function getOrganization(organizationId: string) {
   const db = await getDb();
@@ -22,8 +23,42 @@ export async function getOrgSensors(organizationId: string) {
     .orderBy(asc(sensors.name));
 }
 
-export async function getLatestReadingsBySensor(organizationId: string) {
+/** Latest 5-minute window for one sensor, smoothed. `ts` stays the last raw sample. */
+export async function getSmoothedLatestReading(sensorId: string) {
   const db = await getDb();
+  const [latest] = await db
+    .select({ ts: readings.ts })
+    .from(readings)
+    .where(eq(readings.sensorId, sensorId))
+    .orderBy(desc(readings.ts))
+    .limit(1);
+  if (!latest) return null;
+
+  const start = new Date(bucketStartMs(latest.ts.getTime()));
+  const end = new Date(start.getTime() + DISPLAY_WINDOW_MS);
+  const rows = await db
+    .select()
+    .from(readings)
+    .where(and(eq(readings.sensorId, sensorId), gte(readings.ts, start), lt(readings.ts, end)))
+    .orderBy(asc(readings.ts));
+  if (rows.length === 0) return null;
+
+  const last = rows[rows.length - 1];
+  const smooth = (pick: (row: (typeof rows)[number]) => number) => {
+    const value = smoothedWindowAverage(rows.map(pick));
+    return value === null ? pick(last) : value;
+  };
+
+  return {
+    ...last,
+    temperature: smooth((row) => row.temperature),
+    humidity: smooth((row) => row.humidity),
+    vpd: smooth((row) => row.vpd),
+    dewPoint: smooth((row) => row.dewPoint),
+  };
+}
+
+export async function getLatestReadingsBySensor(organizationId: string) {
   const orgSensors = await getOrgSensors(organizationId);
   const result: Array<{
     sensor: (typeof orgSensors)[number];
@@ -31,13 +66,7 @@ export async function getLatestReadingsBySensor(organizationId: string) {
   }> = [];
 
   for (const sensor of orgSensors) {
-    const [reading] = await db
-      .select()
-      .from(readings)
-      .where(eq(readings.sensorId, sensor.id))
-      .orderBy(sql`${readings.ts} desc`)
-      .limit(1);
-    result.push({ sensor, reading: reading ?? null });
+    result.push({ sensor, reading: await getSmoothedLatestReading(sensor.id) });
   }
 
   return result;
@@ -150,7 +179,7 @@ export async function getChartSeries(params: {
 
   const conditions = [
     eq(readings.organizationId, params.organizationId),
-    gte(readings.ts, params.from),
+    gte(readings.ts, new Date(bucketStartMs(params.from.getTime()))),
     lte(readings.ts, params.to),
   ];
 
@@ -163,7 +192,7 @@ export async function getChartSeries(params: {
     );
   }
 
-  return db
+  const rows = await db
     .select({
       sensorId: readings.sensorId,
       ts: readings.ts,
@@ -172,6 +201,23 @@ export async function getChartSeries(params: {
     .from(readings)
     .where(and(...conditions))
     .orderBy(asc(readings.ts));
+
+  const bySensor = new Map<string, { ts: Date; value: number }[]>();
+  for (const row of rows) {
+    const list = bySensor.get(row.sensorId) ?? [];
+    list.push({ ts: row.ts, value: Number(row.value) });
+    bySensor.set(row.sensorId, list);
+  }
+
+  const smoothed: { sensorId: string; ts: Date; value: number }[] = [];
+  for (const [sensorId, points] of bySensor) {
+    for (const bucket of smoothTimeSeries(points)) {
+      smoothed.push({ sensorId, ts: bucket.ts, value: bucket.value });
+    }
+  }
+
+  smoothed.sort((a, b) => a.ts.getTime() - b.ts.getTime());
+  return smoothed;
 }
 
 const HEATMAP_BUCKETS_SEC = [300, 600, 900, 1800, 3600, 7200, 14400, 21600, 43200, 86400];

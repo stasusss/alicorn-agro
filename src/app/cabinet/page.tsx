@@ -149,7 +149,7 @@ export default async function CabinetOverviewPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="cab-panel px-5 py-7 sm:px-7">
           <p className="text-[12px] font-medium tracking-wide text-[#86868b]">
-            Середня температура зараз
+            Середня температура за 5 хв
           </p>
           <p className="mt-2 font-display text-[3rem] font-semibold leading-none tracking-tight text-[#1d1d1f] sm:text-[3.5rem]">
             {fmt(status.avgTemp)}
@@ -271,7 +271,13 @@ export default async function CabinetOverviewPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="cab-section-title">Поточні значення</h2>
+        <div>
+          <h2 className="cab-section-title">Середнє за 5 хвилин</h2>
+          <p className="mt-1 text-[13px] text-[#86868b]">
+            Згладжене вікно по кожному датчику. Якщо за ці 5 хвилин прийшло менше вимірів,
+            рахуємо по тих, що є.
+          </p>
+        </div>
         <ul className="space-y-2 sm:hidden">
           {latest.map(({ sensor, reading }) => {
             const issue = issueById.get(sensor.id);
