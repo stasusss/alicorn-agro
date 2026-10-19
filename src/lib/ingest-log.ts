@@ -1,5 +1,6 @@
 import { getDb } from "@/db";
 import { ingestLogs } from "@/db/schema";
+import { logger } from "@/lib/log";
 
 export type IngestSensorCount = { id: string; count: number };
 
@@ -55,6 +56,7 @@ export function parseIngestSummary(summary: string): IngestBatchSummary {
 
 type IngestLogEvent = {
   status: "ok" | "unauthorized" | "invalid" | "rate_limited";
+  requestId?: string | null;
   gatewayId?: string | null;
   organizationId?: string | null;
   received?: number;
@@ -64,10 +66,11 @@ type IngestLogEvent = {
   error?: string | null;
 };
 
-function logLine(event: IngestLogEvent) {
-  return JSON.stringify({
+/** Console line for every attempt. A row is stored only after the gateway is known. */
+export async function recordIngestLog(event: IngestLogEvent) {
+  const fields = {
     msg: "ingest",
-    at: new Date().toISOString(),
+    requestId: event.requestId ?? null,
     status: event.status,
     gatewayId: event.gatewayId ?? null,
     received: event.received ?? 0,
@@ -78,14 +81,9 @@ function logLine(event: IngestLogEvent) {
     tsFrom: event.summary?.tsFrom ?? null,
     tsTo: event.summary?.tsTo ?? null,
     error: event.error ?? null,
-  });
-}
-
-/** Console line for every attempt. A row is stored only after the gateway is known. */
-export async function recordIngestLog(event: IngestLogEvent) {
-  const line = logLine(event);
-  if (event.status === "ok") console.info(line);
-  else console.warn(line);
+  };
+  if (event.status === "ok") logger.info(fields);
+  else logger.warn(fields);
 
   if (!event.gatewayId || !event.organizationId || !event.summary) return;
 
@@ -99,9 +97,9 @@ export async function recordIngestLog(event: IngestLogEvent) {
       skippedUnknown: event.skippedUnknown ?? 0,
       tsFrom: event.summary.tsFrom ? new Date(event.summary.tsFrom) : null,
       tsTo: event.summary.tsTo ? new Date(event.summary.tsTo) : null,
-      summary: JSON.stringify(event.summary),
+      summary: JSON.stringify({ ...event.summary, requestId: event.requestId ?? null }),
     });
   } catch (err) {
-    console.error("Failed to store ingest log", err);
+    logger.error({ msg: "ingest_log_store_failed", requestId: event.requestId ?? null, err });
   }
 }

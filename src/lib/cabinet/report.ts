@@ -179,7 +179,7 @@ function buildConclusionAndActions(
   }
 
   parts.push(
-    "Це автоматичний огляд; RH/VPD у тестовому наборі оцінені з T. Для фінальних рішень враховуйте культуру і фазу росту.",
+    "Це автоматичний огляд. Для фінальних рішень враховуйте культуру і фазу росту.",
   );
 
   return { conclusion: parts.join(" "), actions: actions.slice(0, 4) };
@@ -505,12 +505,11 @@ export function renderReportHtml(report: AnalyticsReport, opts?: { autoPrint?: b
     <h2>Середні показники</h2>
     <div class="grid">
       <div class="card"><span>Температура</span><b>${report.overall.avgTemp} °C</b></div>
-      <div class="card"><span>Вологість*</span><b>${report.overall.avgHumidity} %</b></div>
-      <div class="card"><span>VPD*</span><b>${report.overall.avgVpd} kPa</b></div>
-      <div class="card"><span>Точка роси*</span><b>${report.overall.avgDewPoint} °C</b></div>
+      <div class="card"><span>Вологість</span><b>${report.overall.avgHumidity} %</b></div>
+      <div class="card"><span>VPD</span><b>${report.overall.avgVpd} kPa</b></div>
+      <div class="card"><span>Точка роси</span><b>${report.overall.avgDewPoint} °C</b></div>
     </div>
-    <p class="muted" style="margin-top:12px">* RH / VPD / dew у тестових даних оцінені з температури.
-      Діапазон T: ${report.overall.minTemp} … ${report.overall.maxTemp} °C.</p>
+    <p class="muted" style="margin-top:12px">Діапазон T: ${report.overall.minTemp} … ${report.overall.maxTemp} °C.</p>
 
     <h2>Різниці температури</h2>
     <div class="grid">

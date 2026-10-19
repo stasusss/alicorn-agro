@@ -2,7 +2,9 @@ import { getDb } from "@/db";
 import { gateways, readings, sensors } from "@/db/schema";
 import { evaluateAlertsForOrganization } from "@/lib/alerts";
 import { computeDerivedMetrics } from "@/lib/climate";
+import { IngestChunkError, insertReadingsInTransaction } from "@/lib/ingest-write";
 import { recordIngestLog, summarizeIngestBatch } from "@/lib/ingest-log";
+import { logger, requestIdFrom } from "@/lib/log";
 import { verifyApiKey } from "@/lib/password";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -38,14 +40,15 @@ function rateLimited(gatewayId: string, limit = 30, windowMs = 60_000) {
 }
 
 export async function POST(request: Request) {
+  const requestId = requestIdFrom(request);
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    await recordIngestLog({ status: "unauthorized", error: "missing bearer token" });
+    await recordIngestLog({ status: "unauthorized", requestId, error: "missing bearer token" });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const apiKey = authHeader.slice("Bearer ".length).trim();
   if (!apiKey) {
-    await recordIngestLog({ status: "unauthorized", error: "empty bearer token" });
+    await recordIngestLog({ status: "unauthorized", requestId, error: "empty bearer token" });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -53,13 +56,36 @@ export async function POST(request: Request) {
   try {
     json = await request.json();
   } catch {
-    await recordIngestLog({ status: "invalid", error: "invalid JSON" });
+    await recordIngestLog({ status: "invalid", requestId, error: "invalid JSON" });
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
-    await recordIngestLog({ status: "invalid", error: "validation failed" });
+    const issues = parsed.error.issues.slice(0, 6).map((issue) => {
+      const received = "received" in issue ? String(issue.received).slice(0, 80) : undefined;
+      return {
+        path: issue.path.join(".") || "(root)",
+        code: issue.code,
+        message: issue.message,
+        received,
+      };
+    });
+    const shape =
+      json && typeof json === "object" && !Array.isArray(json)
+        ? Object.fromEntries(
+            Object.keys(json as Record<string, unknown>)
+              .slice(0, 20)
+              .map((key) => {
+                const value = (json as Record<string, unknown>)[key];
+                if (Array.isArray(value)) return [key, `array(${value.length})`];
+                return [key, value === null ? "null" : typeof value];
+              }),
+          )
+        : Array.isArray(json)
+          ? `array(${json.length})`
+          : typeof json;
+    await recordIngestLog({ status: "invalid", requestId, error: JSON.stringify({ shape, issues }) });
     return NextResponse.json({ error: "Validation failed", details: parsed.error.flatten() }, { status: 400 });
   }
 
@@ -68,6 +94,7 @@ export async function POST(request: Request) {
   if (rateLimited(gateway_id)) {
     await recordIngestLog({
       status: "rate_limited",
+      requestId,
       gatewayId: gateway_id,
       received: batch.length,
       summary: summarizeIngestBatch(batch, []),
@@ -80,6 +107,7 @@ export async function POST(request: Request) {
   if (!gateway || !verifyApiKey(apiKey, gateway.apiKeyHash)) {
     await recordIngestLog({
       status: "unauthorized",
+      requestId,
       gatewayId: gateway?.id ?? gateway_id,
       organizationId: gateway?.organizationId,
       received: batch.length,
@@ -117,24 +145,26 @@ export async function POST(request: Request) {
   }
 
   let inserted = 0;
-  if (rows.length > 0) {
-    const chunkSize = 200;
-    for (let i = 0; i < rows.length; i += chunkSize) {
-      const chunk = rows.slice(i, i + chunkSize);
-      const result = await db
-        .insert(readings)
-        .values(chunk)
-        .onConflictDoNothing({ target: [readings.sensorId, readings.ts] })
-        .returning({ id: readings.id });
-      inserted += result.length;
+  try {
+    if (rows.length > 0) {
+      inserted = await insertReadingsInTransaction(db, rows);
     }
+    await db.update(gateways).set({ lastSeenAt: new Date() }).where(eq(gateways.id, gateway.id));
+  } catch (err) {
+    logger.error({
+      msg: "ingest_chunk_failed",
+      requestId,
+      gatewayId: gateway.id,
+      chunkIndex: err instanceof IngestChunkError ? err.chunkIndex : null,
+      err: err instanceof IngestChunkError ? err.cause ?? err : err,
+    });
+    return NextResponse.json({ error: "Failed to store readings" }, { status: 500 });
   }
-
-  await db.update(gateways).set({ lastSeenAt: new Date() }).where(eq(gateways.id, gateway.id));
 
   const summary = summarizeIngestBatch(batch, unknownSensors);
   await recordIngestLog({
     status: "ok",
+    requestId,
     gatewayId: gateway.id,
     organizationId: gateway.organizationId,
     received: batch.length,
@@ -146,7 +176,12 @@ export async function POST(request: Request) {
   try {
     await evaluateAlertsForOrganization(gateway.organizationId);
   } catch (err) {
-    console.error("Alert evaluation failed", err);
+    logger.error({
+      msg: "alert_evaluation_failed",
+      requestId,
+      organizationId: gateway.organizationId,
+      err,
+    });
   }
 
   return NextResponse.json({

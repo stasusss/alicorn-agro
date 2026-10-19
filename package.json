@@ -13,8 +13,13 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:seed-demo": "tsx scripts/seed-demo-readings.ts",
     "db:import-csv": "tsx scripts/import-csv-readings.ts",
+    "db:backup": "tsx scripts/backup-db.ts",
+    "db:restore": "tsx scripts/restore-db.ts",
+    "db:restrict-readings": "tsx scripts/apply-readings-restrict.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:ingest": "tsx scripts/test-ingest.ts",
-    "test:smoothing": "tsx scripts/test-smoothing.ts"
+    "test:smoothing": "vitest run tests/smoothing.test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",
@@ -44,12 +49,14 @@
     "@types/react-dom": "^19",
     "@types/suncalc": "^1.9.2",
     "@types/ws": "^8.18.2",
+    "@aws-sdk/client-s3": "^3.901.0",
     "dotenv": "^18.0.8",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

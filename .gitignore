@@ -37,6 +37,12 @@ yarn-error.log*
 # local PGlite data
 .data/
 
+# database dumps and age identities
+/backups/
+*.dump
+*.dump.age
+identity.txt
+
 # vercel
 .vercel
 

@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
+import type { PgliteDatabase } from "drizzle-orm/pglite";
 import { sql } from "drizzle-orm";
+import { applyReadingsSensorRestrict } from "./restrict-readings";
 import * as schema from "./schema";
 
-type Db = ReturnType<typeof drizzleNeon<typeof schema>>;
+export type Db = PgliteDatabase<typeof schema>;
 
 const globalForDb = globalThis as unknown as {
   __alicornDb?: Db;
@@ -83,7 +83,7 @@ async function ensurePgliteSchema(db: Db) {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS readings (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      sensor_id uuid NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+      sensor_id uuid NOT NULL REFERENCES sensors(id) ON DELETE RESTRICT,
       organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
       ts timestamptz NOT NULL,
       temperature double precision NOT NULL,
@@ -152,6 +152,7 @@ async function ensurePgliteSchema(db: Db) {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS alert_events_org_idx ON alert_events(organization_id, triggered_at);
   `);
+  await applyReadingsSensorRestrict(db);
 }
 
 export async function getDb(): Promise<Db> {
@@ -175,8 +176,12 @@ export async function getDb(): Promise<Db> {
         return db;
       }
 
-      const sqlClient = neon(url);
-      const db = drizzleNeon(sqlClient, { schema });
+      const { Pool, neonConfig } = await import("@neondatabase/serverless");
+      const ws = (await import("ws")).default;
+      neonConfig.webSocketConstructor = ws;
+      const pool = new Pool({ connectionString: url, max: 1 });
+      const { drizzle } = await import("drizzle-orm/neon-serverless");
+      const db = drizzle(pool, { schema }) as unknown as Db;
       globalForDb.__alicornDb = db;
       return db;
     })();

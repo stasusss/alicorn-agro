@@ -142,7 +142,7 @@ export default async function CabinetOverviewPage() {
               <span className="font-medium text-[#1d1d1f]">
                 {gateway.lastSeenAt
                   ? relativeTimeUk(gateway.lastSeenAt, now)
-                  : "ще не виходив (демо CSV)"}
+                  : "ще не виходив"}
               </span>
             </p>
           </div>
@@ -237,13 +237,6 @@ export default async function CabinetOverviewPage() {
           )}
         </div>
       </div>
-
-      {/* 5: estimated RH disclaimer */}
-      <p className="rounded-2xl border border-[#ff9f0a]/25 bg-[#ff9f0a]/08 px-4 py-3 text-[13px] text-[#1d1d1f]/80">
-        <strong className="font-semibold">Увага:</strong> вологість, VPD і точка роси зараз
-        оцінені з температури (у тестовому CSV немає RH). Для агрорішень дочекайтесь даних з
-        реальних датчиків вологості.
-      </p>
 
       <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
         <StatCard label="Середньодобова" value={`${fmt(aggregates.dailyAvg)}°`} unit="C" />
@@ -347,19 +340,19 @@ export default async function CabinetOverviewPage() {
                 </div>
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
                   <div>
-                    <dt className="text-[#86868b]">RH %*</dt>
+                    <dt className="text-[#86868b]">RH %</dt>
                     <dd className="mt-0.5 tabular-nums text-[#1d1d1f]">
                       {fmt(reading?.humidity ?? null)}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[#86868b]">VPD*</dt>
+                    <dt className="text-[#86868b]">VPD</dt>
                     <dd className="mt-0.5 tabular-nums text-[#1d1d1f]">
                       {fmt(reading?.vpd ?? null, 2)}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[#86868b]">Dew*</dt>
+                    <dt className="text-[#86868b]">Dew</dt>
                     <dd className="mt-0.5 tabular-nums text-[#1d1d1f]">
                       {fmt(reading?.dewPoint ?? null)}
                     </dd>
@@ -378,9 +371,9 @@ export default async function CabinetOverviewPage() {
               <tr className="border-b border-black/[0.06] text-[#86868b]">
                 <th className="px-5 py-3.5 font-medium">Датчик</th>
                 <th className="px-5 py-3.5 font-medium">T °C</th>
-                <th className="px-5 py-3.5 font-medium">RH %*</th>
-                <th className="px-5 py-3.5 font-medium">VPD*</th>
-                <th className="px-5 py-3.5 font-medium">Dew*</th>
+                <th className="px-5 py-3.5 font-medium">RH %</th>
+                <th className="px-5 py-3.5 font-medium">VPD</th>
+                <th className="px-5 py-3.5 font-medium">Dew</th>
                 <th className="px-5 py-3.5 font-medium">Оновлено</th>
               </tr>
             </thead>
@@ -431,7 +424,6 @@ export default async function CabinetOverviewPage() {
             </tbody>
           </table>
         </div>
-        <p className="text-[12px] text-[#86868b]">* оцінено з температури (тестові дані)</p>
       </section>
     </div>
   );

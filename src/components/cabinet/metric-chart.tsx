@@ -270,12 +270,6 @@ export function MetricChart({ metric, sensors }: Props) {
           Показано зони з найбільшим відхиленням від середнього. Можна перемкнути на «Усі».
         </p>
       )}
-      {(metric === "humidity" || metric === "vpd" || metric === "dew_point") && (
-        <p className="mb-3 text-[12px] text-[#ff9f0a]">
-          * Показник оцінений з температури (тестові дані).
-        </p>
-      )}
-
       {loading && <p className="mb-3 text-[13px] text-[#86868b]">Завантаження…</p>}
       {error && <p className="mb-3 text-[13px] text-[#ff3b30]">{error}</p>}
       {!loading && !error && visibleSeries.every((s) => s.points.length === 0) && (

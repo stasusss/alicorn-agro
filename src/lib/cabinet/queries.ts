@@ -7,6 +7,7 @@ import {
   smoothReadingWindows,
   smoothTimeSeries,
 } from "@/lib/cabinet/smoothing";
+import { logger } from "@/lib/log";
 import { getDayNightWindow, getUtcDayBounds } from "@/lib/sun";
 import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
 
@@ -341,7 +342,7 @@ export async function getRecentIngestLogs(organizationId: string, limit = 8) {
       .orderBy(desc(ingestLogs.receivedAt))
       .limit(limit);
   } catch (err) {
-    console.error("Failed to read ingest logs", err);
+    logger.error({ msg: "ingest_log_read_failed", organizationId, err });
     return [];
   }
 }

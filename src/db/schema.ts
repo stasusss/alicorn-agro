@@ -111,7 +111,7 @@ export const readings = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     sensorId: uuid("sensor_id")
       .notNull()
-      .references(() => sensors.id, { onDelete: "cascade" }),
+      .references(() => sensors.id, { onDelete: "restrict" }),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),

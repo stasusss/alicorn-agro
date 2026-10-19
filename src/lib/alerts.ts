@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { alertEvents, alertRules, sensors } from "@/db/schema";
 import { getSmoothedLatestReading } from "@/lib/cabinet/queries";
+import { logger } from "@/lib/log";
 import { and, eq, gte } from "drizzle-orm";
 import { Resend } from "resend";
 import type { MetricKey } from "./climate";
@@ -40,7 +41,7 @@ function metricValue(
 async function sendTelegram(chatId: string, text: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    console.warn("TELEGRAM_BOT_TOKEN missing; skip telegram alert");
+    logger.warn({ msg: "alert_telegram_skipped", reason: "TELEGRAM_BOT_TOKEN missing" });
     return false;
   }
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -53,6 +54,9 @@ async function sendTelegram(chatId: string, text: string) {
       disable_web_page_preview: false,
     }),
   });
+  if (!res.ok) {
+    logger.error({ msg: "alert_telegram_failed", status: res.status });
+  }
   return res.ok;
 }
 
@@ -67,12 +71,16 @@ async function sendEmail(to: string, subject: string, text: string) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.ALERT_EMAIL_FROM ?? "alerts@alicorn-agro.com";
   if (!apiKey) {
-    console.warn("RESEND_API_KEY missing; skip email alert");
+    logger.warn({ msg: "alert_email_skipped", reason: "RESEND_API_KEY missing" });
     return false;
   }
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({ from, to, subject, text });
-  return !error;
+  if (error) {
+    logger.error({ msg: "alert_email_failed", error: error.message });
+    return false;
+  }
+  return true;
 }
 
 export async function evaluateAlertsForOrganization(organizationId: string) {
@@ -175,14 +183,25 @@ export async function evaluateAlertsForOrganization(organizationId: string) {
     const emailBody = `${plain}\n\nКабінет: ${link}`;
 
     let delivered = false;
-    if (rule.channel === "telegram") {
-      delivered = await sendTelegram(rule.destination, telegram);
-    } else {
-      delivered = await sendEmail(
-        rule.destination,
-        `Alicorn Agro · сповіщення: ${rule.name}`,
-        emailBody,
-      );
+    try {
+      if (rule.channel === "telegram") {
+        delivered = await sendTelegram(rule.destination, telegram);
+      } else {
+        delivered = await sendEmail(
+          rule.destination,
+          `Alicorn Agro · сповіщення: ${rule.name}`,
+          emailBody,
+        );
+      }
+    } catch (err) {
+      logger.error({
+        msg: "alert_delivery_failed",
+        organizationId,
+        ruleId: rule.id,
+        channel: rule.channel,
+        err,
+      });
+      delivered = false;
     }
 
     await db.insert(alertEvents).values({
