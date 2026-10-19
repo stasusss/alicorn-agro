@@ -21,6 +21,12 @@ type R2Config = {
   bucket: string;
 };
 
+const GITHUB_BACKUP_TAG = "db-backups";
+
+function githubBackupRepo() {
+  return process.env.BACKUP_GITHUB_REPO?.trim() ?? "";
+}
+
 function r2Config(): R2Config | null {
   const accountId = process.env.R2_ACCOUNT_ID ?? "";
   const accessKeyId = process.env.R2_ACCESS_KEY_ID ?? "";
@@ -97,6 +103,43 @@ async function listBackupKeys(client: S3Client, bucket: string) {
   return keys;
 }
 
+async function uploadGithubBackup(repo: string, agePath: string, now: Date) {
+  const exists = await run("gh", ["release", "view", GITHUB_BACKUP_TAG, "--repo", repo]).then(
+    () => true,
+    () => false,
+  );
+  if (!exists) {
+    await run("gh", [
+      "release",
+      "create",
+      GITHUB_BACKUP_TAG,
+      "--repo",
+      repo,
+      "--title",
+      "Database backups",
+      "--notes",
+      "Encrypted pg_dump files. The age identity is not in this repository.",
+    ]);
+  }
+  await run("gh", ["release", "upload", GITHUB_BACKUP_TAG, agePath, "--repo", repo, "--clobber"]);
+
+  const view = await run("gh", [
+    "release",
+    "view",
+    GITHUB_BACKUP_TAG,
+    "--repo",
+    repo,
+    "--json",
+    "assets",
+  ]);
+  const assets = (JSON.parse(view) as { assets?: { id: number; name: string }[] }).assets ?? [];
+  const doomed = new Set(backupsToDelete(assets.map((asset) => `backups/${asset.name}`), now));
+  for (const asset of assets) {
+    if (!doomed.has(`backups/${asset.name}`)) continue;
+    await run("gh", ["api", "--method", "DELETE", `repos/${repo}/releases/assets/${asset.id}`]);
+  }
+}
+
 export async function applyBackupRetention(now = new Date()) {
   const config = r2Config();
   if (!config) throw new Error("R2 is not configured");
@@ -136,12 +179,15 @@ export async function backupDatabase(opts?: {
 
   const requireUpload = process.env.REQUIRE_UPLOAD === "1";
   const config = r2Config();
+  const githubRepo = githubBackupRepo();
   if (opts?.skipUpload && !opts?.outDir) {
     throw new Error("Pass --out when using --skip-upload");
   }
-  if (requireUpload && !config) throw new Error("R2 is not configured");
-  if (!opts?.skipUpload && !config && !opts?.outDir) {
-    throw new Error("Set R2 credentials or pass --out");
+  if (requireUpload && !config && !githubRepo) {
+    throw new Error("Set R2 credentials or BACKUP_GITHUB_REPO");
+  }
+  if (!opts?.skipUpload && !config && !githubRepo && !opts?.outDir) {
+    throw new Error("Set R2 credentials, BACKUP_GITHUB_REPO, or pass --out");
   }
 
   const now = opts?.now ?? new Date();
@@ -175,6 +221,7 @@ export async function backupDatabase(opts?: {
       await copyFile(agePath, localPath);
     }
 
+    let uploaded = false;
     if (!opts?.skipUpload && config) {
       const client = r2Client(config);
       await client.send(
@@ -186,8 +233,14 @@ export async function backupDatabase(opts?: {
         }),
       );
       await applyBackupRetention(now);
-    } else if (requireUpload) {
-      throw new Error("R2 upload did not run");
+      uploaded = true;
+    }
+    if (!opts?.skipUpload && githubRepo) {
+      await uploadGithubBackup(githubRepo, agePath, now);
+      uploaded = true;
+    }
+    if (requireUpload && !uploaded) {
+      throw new Error("Backup upload did not run");
     }
 
     return {

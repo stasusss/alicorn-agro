@@ -1,10 +1,10 @@
 # Бекапи клієнтських даних
 
-Покази, облікові записи, шлюзи, датчики й правила сповіщень лежать у Neon. Історія Neon (point-in-time restore) піднімає базу на момент усередині акаунта. Вона не переживає видалення проєкту Neon. Друга копія — щоденний `pg_dump`, зашифрований `age`, у бакеті Cloudflare R2.
+Покази, облікові записи, шлюзи, датчики й правила сповіщень лежать у Neon. Історія Neon (point-in-time restore) піднімає базу на момент усередині акаунта. Вона не переживає видалення проєкту Neon. Друга копія — щоденний `pg_dump`, зашифрований `age`. Зараз вона лежить у приватному репозиторії `stasusss/alicorn-agro-backups` (реліз `db-backups`). Якщо з’являться ключі Cloudflare R2, той самий файл додатково заливається в бакет.
 
-## Що лежить у R2
+## Що лежить у копії
 
-Ключ: `backups/alicorn-YYYY-MM-DDTHH.dump.age` (година UTC).
+Ім’я: `alicorn-YYYY-MM-DDTHH.dump.age` (година UTC). У R2 ключ має префікс `backups/`.
 
 Усередині: gzip custom-дампа Postgres (`pg_dump --format=custom`). Дамп містить хеші паролів і ключів шлюзів, тому в бакет і на диск потрапляє лише зашифрований файл.
 
@@ -12,12 +12,13 @@
 
 ## Секрети
 
-Лише в GitHub Actions (і локально в `.env`, який не комітиться):
+Секрети стоять у приватному репозиторії бекапів, не в публічному коді. Локально — у `.env`, який не комітиться:
 
 | Змінна | Навіщо |
 | --- | --- |
 | `DATABASE_URL` | прод Neon, з нього знімається дамп |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | запис у R2 |
+| `BACKUP_GITHUB_REPO` | приватний репозиторій, куди лягає дамп |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | додаткова копія в R2, якщо бакет є |
 | `AGE_RECIPIENT` | публічний ключ `age1...` |
 | `AGE_IDENTITY` або `AGE_IDENTITY_FILE` | секретний ключ, лише для відновлення |
 | `RESTORE_DATABASE_URL` | порожня база, ніколи не прод |
@@ -28,7 +29,7 @@
 
 ## Розклад
 
-Workflow `.github/workflows/backup.yml` щодня о 02:00 UTC і вручну через `workflow_dispatch`. Після дампа скрипт перевіряє, що файл ненульовий і що `pg_restore --list` бачить таблиці `organizations`, `users`, `sensors`, `readings`.
+Розклад стоїть у приватному репозиторії `alicorn-agro-backups`: щодня о 02:00 UTC і вручну через `workflow_dispatch`. Публічний репозиторій дампи не зберігає. Після дампа скрипт перевіряє, що файл ненульовий і що `pg_restore --list` бачить таблиці `organizations`, `users`, `sensors`, `readings`.
 
 Локально, без завантаження:
 
@@ -48,7 +49,13 @@ AGE_IDENTITY_FILE=./identity.txt \
 npm run db:restore -- --file ./backups/alicorn-2026-10-19T02.dump.age
 ```
 
-Або `--r2-key backups/alicorn-2026-10-19T02.dump.age`, якщо в середовищі є ключі R2.
+Або завантажте файл із приватного релізу:
+
+```bash
+gh release download db-backups --repo stasusss/alicorn-agro-backups --pattern 'alicorn-*.dump.age' --dir ./backups
+```
+
+`--r2-key backups/alicorn-....dump.age` лишається, якщо налаштований бакет R2.
 
 4. Звірте `select count(*) from readings` з очікуваним і лише тоді міняйте `DATABASE_URL` застосунку.
 
@@ -66,4 +73,4 @@ npm run db:restrict-readings
 
 ## Якщо прод уже недоступний
 
-Будить той, у кого є секретний ключ `age`, доступ до R2 і право створити базу Neon. Репозиторій сам дані не містить.
+Будить той, у кого є секретний ключ `age`, доступ до приватного релізу `db-backups` і право створити базу Neon.
