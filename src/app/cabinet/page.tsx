@@ -12,8 +12,10 @@ import {
   getFreshestReadingTs,
   getGatewayStatus,
   getLatestReadingsBySensor,
+  getRecentIngestLogs,
   getTemperatureAggregates,
 } from "@/lib/cabinet/queries";
+import { parseIngestSummary } from "@/lib/ingest-log";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -45,7 +47,7 @@ export default async function CabinetOverviewPage() {
   const now = new Date();
   const outageFrom = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
 
-  const [latest, aggregates, dailyBySensor, gateway, freshestTs, dayCompare, outages] =
+  const [latest, aggregates, dailyBySensor, gateway, freshestTs, dayCompare, outages, ingestLog] =
     await Promise.all([
       getLatestReadingsBySensor(orgId),
       getTemperatureAggregates(orgId),
@@ -54,6 +56,7 @@ export default async function CabinetOverviewPage() {
       getFreshestReadingTs(orgId),
       getDayOverDayTempCompare(orgId),
       getDataOutages(orgId, outageFrom, now, 20),
+      getRecentIngestLogs(orgId),
     ]);
 
   const status = evaluateOverviewStatus(
@@ -145,6 +148,44 @@ export default async function CabinetOverviewPage() {
           </div>
         </div>
       </div>
+
+      <section className="space-y-3">
+        <h2 className="cab-section-title">Надходження зі шлюзу</h2>
+        {ingestLog.length === 0 ? (
+          <p className="text-[13px] text-[#86868b]">Пакетів від приймача ще не було.</p>
+        ) : (
+          <ul className="cab-panel divide-y divide-black/[0.05]">
+            {ingestLog.map((entry) => {
+              const summary = parseIngestSummary(entry.summary);
+              const sensors = summary.sensors.map((sensor) => `${sensor.id} × ${sensor.count}`).join(", ");
+              const range =
+                entry.tsFrom && entry.tsTo
+                  ? `${shortWhen(entry.tsFrom)} — ${shortWhen(entry.tsTo)}`
+                  : null;
+              return (
+                <li key={entry.id} className="px-4 py-3 text-[13px]">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                    <span className="font-medium text-[#1d1d1f]">{shortWhen(entry.receivedAt)}</span>
+                    <span className="text-[#86868b]">
+                      прийнято {entry.received}, нових {entry.inserted}
+                      {entry.skippedUnknown > 0 ? `, невідомих ${entry.skippedUnknown}` : ""}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[#86868b]">
+                    {sensors || "без відомих датчиків"}
+                    {range ? ` · виміри ${range}` : ""}
+                  </p>
+                  {summary.unknownSensors.length > 0 && (
+                    <p className="mt-1 text-[#ff9f0a]">
+                      Невідомі id: {summary.unknownSensors.join(", ")}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="cab-panel px-5 py-7 sm:px-7">

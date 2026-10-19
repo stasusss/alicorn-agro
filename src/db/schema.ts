@@ -83,6 +83,28 @@ export const sensors = pgTable(
   ],
 );
 
+export const ingestLogs = pgTable(
+  "ingest_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    gatewayId: uuid("gateway_id")
+      .notNull()
+      .references(() => gateways.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+    received: integer("received").notNull(),
+    inserted: integer("inserted").notNull(),
+    skippedUnknown: integer("skipped_unknown").notNull(),
+    tsFrom: timestamp("ts_from", { withTimezone: true }),
+    tsTo: timestamp("ts_to", { withTimezone: true }),
+    /** JSON: { sensors: {id, count}[], unknownSensors: string[] } */
+    summary: text("summary").notNull(),
+  },
+  (table) => [index("ingest_logs_org_received_idx").on(table.organizationId, table.receivedAt)],
+);
+
 export const readings = pgTable(
   "readings",
   {

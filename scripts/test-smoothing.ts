@@ -30,6 +30,29 @@ async function main() {
     DISPLAY_WINDOW_MS,
   } = await import("../src/lib/cabinet/smoothing");
   const { dewPointC, vaporPressureDeficit } = await import("../src/lib/climate");
+  const { summarizeIngestBatch } = await import("../src/lib/ingest-log");
+
+  const batchSummary = summarizeIngestBatch(
+    [
+      { sensor_external_id: "s102", ts: "2026-10-19T12:00:15.000Z" },
+      { sensor_external_id: "s101", ts: "2026-10-19T12:00:00.000Z" },
+      { sensor_external_id: "s101", ts: "2026-10-19T12:00:30.000Z" },
+    ],
+    ["s999", "s999"],
+  );
+  assert(
+    batchSummary.sensors.length === 2 &&
+      batchSummary.sensors[0]?.id === "s101" &&
+      batchSummary.sensors[0]?.count === 2 &&
+      batchSummary.sensors[1]?.count === 1,
+    "ingest summary counts readings per sensor",
+  );
+  assert(
+    batchSummary.tsFrom === "2026-10-19T12:00:00.000Z" &&
+      batchSummary.tsTo === "2026-10-19T12:00:30.000Z",
+    "ingest summary keeps the measurement span",
+  );
+  assert(batchSummary.unknownSensors.length === 1 && batchSummary.unknownSensors[0] === "s999", "unknown sensor ids are listed once");
 
   const vpdAt25 = 0.6108 * Math.exp((17.27 * 25) / (25 + 237.3)) * (1 - 60 / 100);
   assert(near(vaporPressureDeficit(25, 60), vpdAt25), "VPD formula at 25 °C and 60% RH");

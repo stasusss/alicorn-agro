@@ -101,6 +101,23 @@ async function ensurePgliteSchema(db: Db) {
     CREATE INDEX IF NOT EXISTS readings_sensor_ts_range_idx ON readings(sensor_id, ts);
   `);
   await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS ingest_logs (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      gateway_id uuid NOT NULL REFERENCES gateways(id) ON DELETE CASCADE,
+      organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      received_at timestamptz NOT NULL DEFAULT now(),
+      received integer NOT NULL,
+      inserted integer NOT NULL,
+      skipped_unknown integer NOT NULL,
+      ts_from timestamptz,
+      ts_to timestamptz,
+      summary text NOT NULL
+    );
+  `);
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS ingest_logs_org_received_idx ON ingest_logs(organization_id, received_at);
+  `);
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS alert_rules (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,

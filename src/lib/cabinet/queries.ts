@@ -1,5 +1,5 @@
 import { getDb } from "@/db";
-import { gateways, organizations, readings, sensors } from "@/db/schema";
+import { gateways, ingestLogs, organizations, readings, sensors } from "@/db/schema";
 import {
   averageByBucket,
   bucketStartMs,
@@ -329,6 +329,21 @@ export async function getGatewayStatus(organizationId: string) {
     lastSeenAt,
     count: rows.length,
   };
+}
+
+export async function getRecentIngestLogs(organizationId: string, limit = 8) {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(ingestLogs)
+      .where(eq(ingestLogs.organizationId, organizationId))
+      .orderBy(desc(ingestLogs.receivedAt))
+      .limit(limit);
+  } catch (err) {
+    console.error("Failed to read ingest logs", err);
+    return [];
+  }
 }
 
 export async function getFreshestReadingTs(organizationId: string) {
