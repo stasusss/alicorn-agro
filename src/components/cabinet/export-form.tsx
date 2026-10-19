@@ -46,7 +46,7 @@ export function ExportForm() {
           onChange={(e) => setTo(e.target.value)}
         />
       </label>
-      <button type="button" onClick={download} className="cab-btn mt-2">
+      <button type="button" onClick={download} className="cab-btn mt-2 w-full sm:w-auto">
         Завантажити CSV
       </button>
     </div>

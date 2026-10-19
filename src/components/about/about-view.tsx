@@ -24,11 +24,11 @@ export function AboutView() {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_360px_at_90%_0%,rgba(42,122,74,0.32),transparent_60%)]"
         />
-        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-wheat">
             Про нас
           </p>
-          <h1 className="mt-4 max-w-4xl font-display text-3xl leading-tight font-medium tracking-tight sm:text-5xl">
+          <h1 className="mt-4 max-w-4xl font-display text-[1.75rem] leading-[1.15] font-medium tracking-tight sm:text-5xl">
             Про компанію Alicorn Agro
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-cream/75 sm:text-lg">
@@ -39,7 +39,7 @@ export function AboutView() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
         <Reveal>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
             Наша експертиза
@@ -76,7 +76,7 @@ export function AboutView() {
       </section>
 
       <section className="bg-white/60">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
               Чому саме ми?
@@ -109,7 +109,7 @@ export function AboutView() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <Reveal>
           <div className="flex flex-col items-start gap-4 rounded-[2rem] bg-mint px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
             <div className="flex items-start gap-4">

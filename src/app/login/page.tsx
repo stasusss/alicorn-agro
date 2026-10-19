@@ -15,7 +15,7 @@ export default async function LoginPage({
 
   return (
     <div className="cabinet flex min-h-full flex-1 flex-col">
-      <header className="border-b border-black/[0.06] bg-[#f5f5f7]/80 backdrop-blur-xl">
+      <header className="border-b border-black/[0.06] bg-[#f5f5f7]/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
             Alicorn

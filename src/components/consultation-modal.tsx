@@ -104,7 +104,7 @@ export function ConsultationModal() {
   }
 
   const fieldClass =
-    "w-full rounded-xl border bg-white px-4 py-3 text-ink outline-none transition-shadow placeholder:text-ink-muted/50 focus:ring-4";
+    "w-full rounded-xl border bg-white px-4 py-3 text-base text-ink outline-none transition-shadow placeholder:text-ink-muted/50 focus:ring-4";
 
   return (
     <AnimatePresence>

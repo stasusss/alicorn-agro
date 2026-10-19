@@ -174,6 +174,69 @@ export async function getChartSeries(params: {
     .orderBy(asc(readings.ts));
 }
 
+const HEATMAP_BUCKETS_SEC = [300, 600, 900, 1800, 3600, 7200, 14400, 21600, 43200, 86400];
+
+/** Bucket width that yields about 90 frames, so a day plays back in under a minute. */
+export function heatmapBucketSeconds(from: Date, to: Date) {
+  const spanMs = Math.max(60_000, to.getTime() - from.getTime());
+  const rawSec = spanMs / 90 / 1000;
+  return HEATMAP_BUCKETS_SEC.find((step) => step >= rawSec) ?? 86_400;
+}
+
+export type HeatmapFrame = { ts: string; temps: Record<string, number> };
+
+export async function getHeatmapFrames(params: {
+  organizationId: string;
+  from: Date;
+  to: Date;
+}) {
+  const db = await getDb();
+  const bucket = heatmapBucketSeconds(params.from, params.to);
+  const result = await db.execute<{
+    sensorId: string;
+    bucket: string;
+    temperature: number | string;
+  }>(sql`
+    select
+      sensor_id as "sensorId",
+      to_timestamp(floor(extract(epoch from ts) / ${bucket}) * ${bucket}) as bucket,
+      avg(temperature) as temperature
+    from readings
+    where organization_id = ${params.organizationId}::uuid
+      and ts >= ${params.from}
+      and ts <= ${params.to}
+    group by sensor_id, bucket
+    order by bucket
+  `);
+  const rows = Array.isArray(result) ? result : result.rows;
+
+  const byBucket = new Map<number, Record<string, number>>();
+  for (const row of rows) {
+    if (row.temperature === null) continue;
+    const time = new Date(row.bucket).getTime();
+    if (!Number.isFinite(time)) continue;
+    const slot = byBucket.get(time) ?? {};
+    slot[row.sensorId] = Number(row.temperature);
+    byBucket.set(time, slot);
+  }
+
+  const times = [...byBucket.keys()].sort((a, b) => a - b);
+  const carry: Record<string, number> = {};
+  let previous = Number.NEGATIVE_INFINITY;
+  const frames: HeatmapFrame[] = times.map((time) => {
+    if (time - previous > bucket * 2 * 1000) {
+      for (const key of Object.keys(carry)) delete carry[key];
+    }
+    const actual = byBucket.get(time) ?? {};
+    const temps = { ...carry, ...actual };
+    Object.assign(carry, actual);
+    previous = time;
+    return { ts: new Date(time).toISOString(), temps };
+  });
+
+  return { bucketMinutes: bucket / 60, frames };
+}
+
 export async function getGatewayStatus(organizationId: string) {
   const db = await getDb();
   const rows = await db

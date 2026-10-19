@@ -35,11 +35,11 @@ export function ServicesView() {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_360px_at_12%_0%,rgba(201,169,106,0.16),transparent_58%)]"
         />
-        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-wheat">
             Послуги
           </p>
-          <h1 className="mt-4 max-w-4xl font-display text-3xl leading-tight font-medium tracking-tight sm:text-5xl">
+          <h1 className="mt-4 max-w-4xl font-display text-[1.75rem] leading-[1.15] font-medium tracking-tight sm:text-5xl">
             Послуги Alicorn Agro
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-cream/75 sm:text-lg">
@@ -49,7 +49,7 @@ export function ServicesView() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <div className="space-y-4">
           {serviceCatalog.map((service, index) => {
             const Icon = icons[index];
@@ -69,19 +69,15 @@ export function ServicesView() {
                         current === service.id ? "" : service.id,
                       )
                     }
-                    className="flex w-full items-start gap-4 p-6 text-left transition-colors hover:bg-mint/40 sm:p-8"
+                    className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-mint/40 sm:gap-4 sm:p-8"
                   >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-mint text-forest">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-mint text-forest sm:h-12 sm:w-12">
                       <Icon className="h-5 w-5" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-3">
-                        <span className="font-display text-sm text-wheat">
-                          0{index + 1}
-                        </span>
-                        <span className="font-display text-xl tracking-tight text-forest-dark sm:text-2xl">
-                          {service.title}
-                        </span>
+                      <span className="font-display text-sm text-wheat">0{index + 1}</span>
+                      <span className="mt-1 block font-display text-lg leading-snug tracking-tight text-forest-dark sm:text-2xl">
+                        {service.title}
                       </span>
                       <span className="mt-2 block text-sm leading-relaxed text-ink-muted">
                         {service.intro}
@@ -104,7 +100,7 @@ export function ServicesView() {
                         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                         className="overflow-hidden"
                       >
-                        <ul className="grid gap-3 border-t border-forest/10 px-6 pb-6 sm:grid-cols-2 sm:px-8 sm:pb-8">
+                        <ul className="grid gap-3 border-t border-forest/10 px-4 pb-4 sm:grid-cols-2 sm:px-8 sm:pb-8">
                           {service.items.map((item) => (
                             <li
                               key={item.title}
@@ -143,7 +139,7 @@ export function ServicesView() {
             проконсультуємо вас та складемо точний кошторис.
           </p>
           <div className="mt-8">
-            <ConsultButton variant="light" showArrow />
+            <ConsultButton variant="light" showArrow className="w-full sm:w-auto" />
           </div>
         </div>
       </section>

@@ -8,7 +8,7 @@ const chips = ["Температура", "Вологість", "VPD", "Точк�
 
 export function ProductTeaser() {
   return (
-    <section className="pb-20 sm:pb-24">
+    <section className="pb-14 sm:pb-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ y: 16 }}
@@ -52,8 +52,8 @@ export function ProductTeaser() {
               </div>
             </div>
 
-            <div className="relative min-h-[280px] bg-[radial-gradient(circle_at_70%_40%,rgba(42,122,74,0.45),transparent_58%)] p-6 sm:p-10">
-              <div className="absolute inset-x-8 bottom-8 top-10 rounded-3xl border border-wheat/20 bg-forest-deeper/40 p-5 backdrop-blur-sm sm:inset-x-12">
+            <div className="bg-[radial-gradient(circle_at_70%_40%,rgba(42,122,74,0.45),transparent_58%)] p-4 sm:p-10">
+              <div className="rounded-3xl border border-wheat/20 bg-forest-deeper/40 p-5 backdrop-blur-sm">
                 <div className="flex items-center gap-2 text-wheat">
                   <Radio className="h-4 w-4" aria-hidden />
                   <span className="text-xs font-semibold uppercase tracking-[0.16em]">

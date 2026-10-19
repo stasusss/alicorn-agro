@@ -48,7 +48,7 @@ model-viewer.product-model-viewer {
   display: block;
   width: 100%;
   max-width: 600px;
-  height: 400px;
+  height: 17.5rem;
   margin: auto;
   background: transparent;
   border-radius: 1.25rem;
@@ -56,7 +56,13 @@ model-viewer.product-model-viewer {
 
 @media (min-width: 640px) {
   model-viewer.product-model-viewer {
-    height: 500px;
+    height: 26rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  model-viewer.product-model-viewer {
+    height: 31.25rem;
   }
 }
 
@@ -124,10 +130,17 @@ model-viewer.product-model-viewer {
   border: 1px solid var(--cab-line);
   background: #fbfbfd;
   padding: 0.7rem 0.9rem;
-  font-size: 0.9375rem;
+  /* 16px stops iOS from zooming the page when a field is focused */
+  font-size: 1rem;
   color: var(--cab-text);
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+@media (min-width: 640px) {
+  .cabinet .cab-input {
+    font-size: 0.9375rem;
+  }
 }
 
 .cabinet .cab-input:focus {
@@ -182,4 +195,23 @@ model-viewer.product-model-viewer {
 .cabinet .uplot,
 .cabinet .uplot text {
   font-family: var(--font-sans) !important;
+}
+
+.cabinet .uplot {
+  max-width: 100%;
+}
+
+.cabinet .uplot .u-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.85rem;
+  margin: 0.65rem 0 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+.cabinet .uplot .u-legend tr {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }

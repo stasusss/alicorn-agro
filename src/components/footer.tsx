@@ -6,7 +6,7 @@ import Link from "next/link";
 export function Footer() {
   return (
     <footer className="bg-forest-deeper text-cream">
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:px-8 lg:py-16">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-14 lg:grid-cols-12 lg:gap-12 lg:px-8 lg:py-16">
         <div className="lg:col-span-5">
           <Logo inverted />
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-cream/70">
@@ -15,7 +15,8 @@ export function Footer() {
           </p>
         </div>
 
-        <div className="lg:col-span-3">
+        <div className="grid grid-cols-2 gap-6 sm:gap-10 lg:col-span-7 lg:grid-cols-2">
+        <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wheat">
             Навігація
           </p>
@@ -24,7 +25,7 @@ export function Footer() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="text-sm text-cream/80 transition-colors hover:text-white"
+                  className="inline-flex min-h-10 items-center text-sm text-cream/80 transition-colors hover:text-white"
                 >
                   {item.label}
                 </Link>
@@ -33,7 +34,7 @@ export function Footer() {
           </ul>
         </div>
 
-        <div className="lg:col-span-4">
+        <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wheat">
             Контакти
           </p>
@@ -41,22 +42,23 @@ export function Footer() {
             <li>
               <a
                 href={site.phoneHref}
-                className="inline-flex items-center gap-2.5 text-sm text-cream/80 transition-colors hover:text-white"
+                className="inline-flex items-start gap-2.5 text-sm text-cream/80 transition-colors hover:text-white"
               >
-                <Phone className="h-4 w-4 text-wheat" aria-hidden />
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-wheat" aria-hidden />
                 {site.phone}
               </a>
             </li>
             <li>
               <a
                 href={`mailto:${site.email}`}
-                className="inline-flex items-center gap-2.5 text-sm text-cream/80 transition-colors hover:text-white"
+                className="inline-flex items-start gap-2.5 break-all text-sm text-cream/80 transition-colors hover:text-white"
               >
-                <Mail className="h-4 w-4 text-wheat" aria-hidden />
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-wheat" aria-hidden />
                 {site.email}
               </a>
             </li>
           </ul>
+        </div>
         </div>
       </div>
 

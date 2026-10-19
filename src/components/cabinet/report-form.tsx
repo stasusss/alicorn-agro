@@ -82,12 +82,12 @@ export function ReportForm() {
         />
       </label>
       {error && <p className="text-[13px] text-[#ff3b30]">{error}</p>}
-      <div className="flex flex-wrap gap-2 pt-1">
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={() => orderReport("html")}
           disabled={!!loading}
-          className="cab-btn"
+          className="cab-btn w-full sm:w-auto"
         >
           {loading === "html" ? "Формуємо…" : "Замовити звіт"}
         </button>
@@ -95,7 +95,7 @@ export function ReportForm() {
           type="button"
           onClick={() => orderReport("pdf")}
           disabled={!!loading}
-          className="cab-btn-ghost"
+          className="cab-btn-ghost w-full sm:w-auto"
         >
           {loading === "pdf" ? "…" : "Зберегти PDF"}
         </button>

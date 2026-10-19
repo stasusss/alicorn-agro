@@ -1,5 +1,6 @@
 "use client";
 
+import { Pause, Play } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export type HeatmapPoint = {
@@ -166,13 +167,121 @@ function paintField(
   }
 }
 
-export function Heatmap({ points }: { points: HeatmapPoint[] }) {
+type HeatmapFrame = { ts: string; temps: Record<string, number> };
+
+const PLAYBACK_FRAME_MS = 700;
+const MIN_PLAYBACK_MS = 28_000;
+const MAX_PLAYBACK_MS = 75_000;
+
+function playbackDuration(frameCount: number) {
+  const natural = Math.max(1, frameCount - 1) * PLAYBACK_FRAME_MS;
+  return Math.min(MAX_PLAYBACK_MS, Math.max(MIN_PLAYBACK_MS, natural));
+}
+
+function toLocalInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function initialRange(latestTs: string | null) {
+  const end = latestTs ? new Date(latestTs) : new Date();
+  const start = new Date(end.getTime() - 24 * 60 * 60_000);
+  return { from: toLocalInput(start), to: toLocalInput(end) };
+}
+
+function formatWhen(date: Date) {
+  return date.toLocaleString("uk-UA", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function scaleTemps(temps: number[]) {
+  if (temps.length === 0) {
+    return {
+      min: 16,
+      max: 26,
+      frameMin: null as number | null,
+      frameMax: null as number | null,
+      frameDelta: null as number | null,
+    };
+  }
+  const frameMin = Math.min(...temps);
+  const frameMax = Math.max(...temps);
+  const frameDelta = frameMax - frameMin;
+  let lo = frameMin;
+  let hi = frameMax;
+  if (hi - lo < 1.2) {
+    const mid = (lo + hi) / 2;
+    lo = mid - 0.8;
+    hi = mid + 0.8;
+  } else {
+    const pad = (hi - lo) * 0.12;
+    lo -= pad;
+    hi += pad;
+  }
+  return { min: lo, max: hi, frameMin, frameMax, frameDelta };
+}
+
+export function Heatmap({
+  points,
+  latestTs = null,
+}: {
+  points: HeatmapPoint[];
+  /** ISO time of the newest reading. Playback defaults to the 24 hours before it. */
+  latestTs?: string | null;
+}) {
   const [mode, setMode] = useState<"current" | "daily">("current");
   const [hoverId, setHoverId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  const defaults = useMemo(() => initialRange(latestTs), [latestTs]);
+  const [from, setFrom] = useState(defaults.from);
+  const [to, setTo] = useState(defaults.to);
+  const [history, setHistory] = useState<HeatmapFrame[] | null>(null);
+  const [bucketMinutes, setBucketMinutes] = useState<number | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [live, setLive] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [playError, setPlayError] = useState<string | null>(null);
+  const loadedKey = useRef<string | null>(null);
+  const historyRef = useRef<HeatmapFrame[] | null>(null);
+  const progressRef = useRef(0);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  useEffect(() => {
+    if (!playing) progressRef.current = progress;
+  }, [progress, playing]);
+
+  const showingHistory = !live && history !== null && history.length > 0;
+
   const active = useMemo(() => {
+    if (showingHistory && history) {
+      const last = history.length - 1;
+      const pos = progress * last;
+      const index = Math.min(last, Math.floor(pos));
+      const next = Math.min(last, index + 1);
+      const mix = history.length === 1 ? 0 : pos - index;
+      const fromFrame = history[index];
+      const toFrame = history[next];
+      const list: ActivePoint[] = [];
+      for (const p of points) {
+        const a = fromFrame.temps[p.id];
+        const b = toFrame.temps[p.id];
+        const temp = a == null ? b : b == null ? a : a + (b - a) * mix;
+        if (temp == null || !Number.isFinite(temp)) continue;
+        list.push({ id: p.id, name: p.name, x: p.x, y: p.y, temp });
+      }
+      return list;
+    }
+
     const list: ActivePoint[] = [];
     for (const p of points) {
       const temp = mode === "current" ? p.currentTemp : p.dailyAvgTemp;
@@ -180,29 +289,39 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
       list.push({ id: p.id, name: p.name, x: p.x, y: p.y, temp });
     }
     return list;
-  }, [points, mode]);
+  }, [points, mode, showingHistory, history, progress]);
 
   const { min, max, frameMin, frameMax, frameDelta } = useMemo(() => {
-    if (active.length === 0) {
-      return { min: 16, max: 26, frameMin: null as number | null, frameMax: null as number | null, frameDelta: null as number | null };
+    if (showingHistory && history) {
+      const temps: number[] = [];
+      for (const frame of history) {
+        for (const value of Object.values(frame.temps)) {
+          if (Number.isFinite(value)) temps.push(value);
+        }
+      }
+      const scale = scaleTemps(temps);
+      const frameTemps = active.map((p) => p.temp);
+      return {
+        ...scale,
+        frameMin: frameTemps.length ? Math.min(...frameTemps) : null,
+        frameMax: frameTemps.length ? Math.max(...frameTemps) : null,
+        frameDelta: frameTemps.length ? Math.max(...frameTemps) - Math.min(...frameTemps) : null,
+      };
     }
-    const temps = active.map((p) => p.temp);
-    const frameMin = Math.min(...temps);
-    const frameMax = Math.max(...temps);
-    const frameDelta = frameMax - frameMin;
-    let lo = frameMin;
-    let hi = frameMax;
-    if (hi - lo < 1.2) {
-      const mid = (lo + hi) / 2;
-      lo = mid - 0.8;
-      hi = mid + 0.8;
-    } else {
-      const pad = (hi - lo) * 0.12;
-      lo -= pad;
-      hi += pad;
-    }
-    return { min: lo, max: hi, frameMin, frameMax, frameDelta };
-  }, [active]);
+    return scaleTemps(active.map((p) => p.temp));
+  }, [active, showingHistory, history]);
+
+  const playbackLabel = useMemo(() => {
+    if (!showingHistory || !history || history.length === 0) return null;
+    const last = history.length - 1;
+    const pos = progress * last;
+    const index = Math.min(last, Math.floor(pos));
+    const next = Math.min(last, index + 1);
+    const mix = history.length === 1 ? 0 : pos - index;
+    const t0 = new Date(history[index].ts).getTime();
+    const t1 = new Date(history[next].ts).getTime();
+    return formatWhen(new Date(t0 + (t1 - t0) * mix));
+  }, [showingHistory, history, progress]);
 
   const legendGradient = useMemo(() => {
     const stops = PALETTE.map((c, i) => {
@@ -225,6 +344,121 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
     return () => ro.disconnect();
   }, [active, min, max]);
 
+  useEffect(() => {
+    if (!playing) return;
+    const frames = historyRef.current;
+    if (!frames || frames.length < 2) return;
+
+    let raf = 0;
+    let last = performance.now();
+    let acc = 0;
+    const total = playbackDuration(frames.length);
+
+    const tick = (now: number) => {
+      // A slow paint must not skip the whole period in one frame.
+      const dt = Math.min(100, Math.max(0, now - last));
+      last = now;
+      acc += dt;
+      if (acc >= 80) {
+        const step = acc;
+        acc = 0;
+        const next = progressRef.current + step / total;
+        if (next >= 1) {
+          progressRef.current = 1;
+          setProgress(1);
+          setPlaying(false);
+          return;
+        }
+        progressRef.current = next;
+        setProgress(next);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing]);
+
+  function resetPlayback() {
+    setPlaying(false);
+    setLive(true);
+    setHistory(null);
+    setBucketMinutes(null);
+    setProgress(0);
+    loadedKey.current = null;
+  }
+
+  async function ensureFrames() {
+    const key = `${from}|${to}`;
+    if (loadedKey.current === key && historyRef.current) return historyRef.current;
+
+    const start = new Date(from);
+    const end = new Date(to);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
+      setPlayError("Вкажіть період: дата «з» має бути раніше за «до».");
+      return null;
+    }
+
+    setLoading(true);
+    setPlayError(null);
+    try {
+      const params = new URLSearchParams({
+        from: start.toISOString(),
+        to: end.toISOString(),
+      });
+      const res = await fetch(`/api/cabinet/heatmap?${params}`);
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        bucketMinutes?: number;
+        frames?: HeatmapFrame[];
+      };
+      if (!res.ok) throw new Error(data.error ?? "Не вдалося завантажити період");
+      const frames = data.frames ?? [];
+      if (frames.length === 0) {
+        setHistory(null);
+        loadedKey.current = null;
+        setPlayError("Немає вимірів за цей період.");
+        return null;
+      }
+      setHistory(frames);
+      setBucketMinutes(data.bucketMinutes ?? null);
+      setProgress(0);
+      loadedKey.current = key;
+      return frames;
+    } catch (error) {
+      setPlayError(error instanceof Error ? error.message : "Помилка");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function startPlayback() {
+    const frames = await ensureFrames();
+    if (!frames || frames.length === 0) return;
+    setLive(false);
+    if (frames.length < 2) {
+      setProgress(0);
+      setPlaying(false);
+      return;
+    }
+    if (progressRef.current >= 0.999) {
+      progressRef.current = 0;
+      setProgress(0);
+    }
+    setPlaying(true);
+  }
+
+  function pausePlayback() {
+    setPlaying(false);
+  }
+
+  function showLive(next: "current" | "daily") {
+    setMode(next);
+    setPlaying(false);
+    setLive(true);
+  }
+
   const hovered = hoverId ? active.find((p) => p.id === hoverId) : null;
 
   return (
@@ -239,9 +473,9 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
         <div className="inline-flex rounded-full bg-black/[0.04] p-0.5 text-[12px]">
           <button
             type="button"
-            onClick={() => setMode("current")}
+            onClick={() => showLive("current")}
             className={`rounded-full px-3.5 py-1.5 transition ${
-              mode === "current"
+              mode === "current" && !showingHistory
                 ? "bg-white text-[#1d1d1f] shadow-sm"
                 : "text-[#86868b] hover:text-[#1d1d1f]"
             }`}
@@ -250,9 +484,9 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
           </button>
           <button
             type="button"
-            onClick={() => setMode("daily")}
+            onClick={() => showLive("daily")}
             className={`rounded-full px-3.5 py-1.5 transition ${
-              mode === "daily"
+              mode === "daily" && !showingHistory
                 ? "bg-white text-[#1d1d1f] shadow-sm"
                 : "text-[#86868b] hover:text-[#1d1d1f]"
             }`}
@@ -264,7 +498,7 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
 
       <div
         ref={wrapRef}
-        className="cab-panel relative aspect-[16/10] w-full overflow-hidden bg-[#e8edf3]"
+        className="cab-panel relative aspect-[4/5] w-full overflow-hidden bg-[#e8edf3] sm:aspect-[16/10]"
       >
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 
@@ -279,7 +513,7 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
             <button
               key={p.id}
               type="button"
-              className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-left transition-transform duration-200"
+              className="absolute z-10 text-left transition-transform duration-200"
               style={{
                 left: `${p.x * 100}%`,
                 top: `${p.y * 100}%`,
@@ -291,7 +525,7 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
               onBlur={() => setHoverId(null)}
               aria-label={`${p.name}: ${p.temp.toFixed(1)} °C`}
             >
-              {issue && (
+              {issue && !showingHistory && (
                 <span
                   className={`absolute left-1/2 top-1/2 -z-20 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full ${
                     issue === "critical" ? "animate-pulse bg-[#ff3b30]/35" : "bg-[#ff9f0a]/30"
@@ -330,13 +564,19 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
           );
         })}
 
+        {showingHistory && playbackLabel && (
+          <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-[#1d1d1f]/78 px-3 py-1 text-[12px] font-medium text-white backdrop-blur-md">
+            {playbackLabel}
+          </div>
+        )}
+
         {hovered && (
           <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex justify-center sm:bottom-4">
             <div className="rounded-full bg-[#1d1d1f]/78 px-3.5 py-1.5 text-[12px] text-white backdrop-blur-md">
               <span className="font-medium">{hovered.name}</span>
               <span className="mx-1.5 text-white/40">·</span>
               <span className="tabular-nums">{hovered.temp.toFixed(1)} °C</span>
-              {points.find((p) => p.id === hovered.id)?.issueSeverity && (
+              {!showingHistory && points.find((p) => p.id === hovered.id)?.issueSeverity && (
                 <>
                   <span className="mx-1.5 text-white/40">·</span>
                   <span className="text-[#ffd60a]">проблемна зона</span>
@@ -351,6 +591,85 @@ export function Heatmap({ points }: { points: HeatmapPoint[] }) {
             Немає даних для карти
           </div>
         )}
+      </div>
+
+      <div className="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-[12px] text-[#86868b]">
+            З
+            <input
+              type="datetime-local"
+              className="cab-input"
+              value={from}
+              onChange={(event) => {
+                setFrom(event.target.value);
+                resetPlayback();
+              }}
+            />
+          </label>
+          <label className="text-[12px] text-[#86868b]">
+            До
+            <input
+              type="datetime-local"
+              className="cab-input"
+              value={to}
+              onChange={(event) => {
+                setTo(event.target.value);
+                resetPlayback();
+              }}
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void startPlayback()}
+            disabled={loading}
+            aria-pressed={playing}
+            className="cab-btn min-h-11 flex-1 gap-2 sm:flex-none"
+          >
+            <Play className="h-4 w-4" aria-hidden />
+            {loading ? "Завантаження…" : "Запуск"}
+          </button>
+          <button
+            type="button"
+            onClick={pausePlayback}
+            disabled={!playing}
+            className="cab-btn-ghost inline-flex min-h-11 flex-1 items-center justify-center gap-2 disabled:opacity-40 sm:flex-none"
+          >
+            <Pause className="h-4 w-4" aria-hidden />
+            Пауза
+          </button>
+          <span className="min-w-0 flex-1 text-right text-[13px] font-medium tabular-nums text-[#1d1d1f]">
+            {playbackLabel ?? "Наживо"}
+          </span>
+        </div>
+
+        <input
+          type="range"
+          min={0}
+          max={1000}
+          step={1}
+          value={history && history.length > 1 ? Math.round(progress * 1000) : 0}
+          disabled={!history || history.length < 2}
+          aria-label="Час на тепловій карті"
+          aria-valuetext={playbackLabel ?? "Наживо"}
+          onChange={(event) => {
+            setPlaying(false);
+            setLive(false);
+            setProgress(Number(event.target.value) / 1000);
+          }}
+          className="h-8 w-full cursor-pointer accent-[#1d1d1f] disabled:cursor-default disabled:opacity-40"
+        />
+
+        <p className="text-[12px] text-[#86868b]">
+          {playError
+            ? playError
+            : bucketMinutes && history
+              ? `Крок ${bucketMinutes} хв · ${history.length} ${history.length === 1 ? "кадр" : "кадрів"}`
+              : "Оберіть період і натисніть «Запуск» — карта повільно пройде його в часі."}
+        </p>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">

@@ -21,7 +21,7 @@ export function Hero() {
       />
       <GreenhouseWireframe />
 
-      <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:px-8 lg:py-24">
+      <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-12 sm:gap-12 sm:px-6 sm:py-16 lg:grid-cols-12 lg:px-8 lg:py-24">
         <div className="lg:col-span-7">
           <motion.p
             initial={{ y: 10 }}
@@ -35,7 +35,7 @@ export function Hero() {
             initial={{ y: 14 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.5, delay: 0.05 }}
-            className="mt-4 max-w-3xl font-display text-[2.15rem] leading-[1.12] font-medium tracking-tight sm:text-5xl lg:text-[3.35rem]"
+            className="mt-4 max-w-3xl font-display text-[1.85rem] leading-[1.15] font-medium tracking-tight sm:text-5xl lg:text-[3.35rem]"
           >
             Контролюйте кожен фактор, що впливає на врожай
           </motion.h1>
@@ -52,12 +52,12 @@ export function Hero() {
             initial={{ y: 14 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.5, delay: 0.14 }}
-            className="mt-8 flex flex-wrap items-center gap-3"
+            className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
           >
-            <ConsultButton variant="light" showArrow />
+            <ConsultButton variant="light" showArrow className="w-full sm:w-auto" />
             <Link
               href="/services"
-              className="inline-flex items-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-cream/85 ring-1 ring-white/20 transition-colors hover:bg-white/5 hover:text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-cream/85 ring-1 ring-white/20 transition-colors hover:bg-white/5 hover:text-white sm:w-auto"
             >
               Переглянути послуги
               <ArrowDownRight className="h-4 w-4" aria-hidden />
@@ -85,14 +85,14 @@ export function Hero() {
                 онлайн
               </span>
             </div>
-            <ul className="grid grid-cols-2 gap-3">
+            <ul className="grid grid-cols-2 gap-2.5 sm:gap-3">
               {metrics.map((metric) => (
                 <li
                   key={metric.label}
                   className="rounded-2xl bg-forest-deeper/50 p-3.5 ring-1 ring-white/8"
                 >
                   <metric.icon className="h-4 w-4 text-wheat" aria-hidden />
-                  <p className="mt-3 font-display text-xl tracking-tight text-cream">
+                  <p className="mt-3 font-display text-lg tracking-tight text-cream sm:text-xl">
                     {metric.value}
                   </p>
                   <p className="mt-0.5 text-xs text-cream/70">{metric.label}</p>

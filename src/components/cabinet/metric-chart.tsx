@@ -142,9 +142,12 @@ export function MetricChart({ metric, sensors }: Props) {
       data.push(xs.map((t) => map.get(t) ?? null));
     }
 
+    const chartHeight = window.matchMedia("(max-width: 639px)").matches ? 220 : 260;
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+
     const opts: uPlot.Options = {
       width: el.clientWidth,
-      height: 260,
+      height: chartHeight,
       series: [
         {},
         ...visibleSeries.map((s) => ({
@@ -163,7 +166,7 @@ export function MetricChart({ metric, sensors }: Props) {
         },
       ],
       legend: { show: true },
-      cursor: { drag: { x: true, y: false } },
+      cursor: { drag: coarse ? { x: false, y: false } : { x: true, y: false } },
     };
 
     plotRef.current = new uPlot(opts, data, el);
@@ -172,7 +175,7 @@ export function MetricChart({ metric, sensors }: Props) {
       if (plotRef.current && containerRef.current) {
         plotRef.current.setSize({
           width: containerRef.current.clientWidth,
-          height: 260,
+          height: window.matchMedia("(max-width: 639px)").matches ? 220 : 260,
         });
       }
     });

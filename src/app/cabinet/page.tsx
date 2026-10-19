@@ -27,6 +27,16 @@ function fmt(n: number | null, digits = 1) {
   return n.toFixed(digits);
 }
 
+function shortWhen(d: Date) {
+  return d.toLocaleString("uk-UA", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Kyiv",
+  });
+}
+
 export default async function CabinetOverviewPage() {
   const session = await auth();
   if (!session?.user?.organizationId) redirect("/login");
@@ -211,7 +221,7 @@ export default async function CabinetOverviewPage() {
       </div>
 
       {/* 2: problem zones on map */}
-      <Heatmap points={heatmapPoints} />
+      <Heatmap points={heatmapPoints} latestTs={freshestTs?.toISOString() ?? null} />
 
       {status.problemZones.length > 0 && (
         <section className="space-y-3">
@@ -249,10 +259,9 @@ export default async function CabinetOverviewPage() {
         ) : (
           <ul className="cab-panel divide-y divide-black/[0.05]">
             {outages.map((o, i) => (
-              <li key={i} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-[13px]">
+              <li key={i} className="flex flex-col gap-1 px-4 py-3 text-[13px] sm:flex-row sm:items-baseline sm:justify-between">
                 <span className="text-[#1d1d1f]">
-                  {o.from.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" })} →{" "}
-                  {o.to.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv" })}
+                  {shortWhen(o.from)} — {shortWhen(o.to)}
                 </span>
                 <span className="text-[#86868b]">{o.minutes} хв без даних</span>
               </li>
@@ -263,7 +272,60 @@ export default async function CabinetOverviewPage() {
 
       <section className="space-y-4">
         <h2 className="cab-section-title">Поточні значення</h2>
-        <div className="cab-panel overflow-x-auto">
+        <ul className="space-y-2 sm:hidden">
+          {latest.map(({ sensor, reading }) => {
+            const issue = issueById.get(sensor.id);
+            return (
+              <li
+                key={sensor.id}
+                className={`cab-panel px-4 py-3.5 ${
+                  issue === "critical"
+                    ? "border-[#ff3b30]/25"
+                    : issue === "warn"
+                      ? "border-[#ff9f0a]/25"
+                      : ""
+                }`}
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-medium text-[#1d1d1f]">
+                    {sensor.name}
+                    {issue && (
+                      <span className="ml-2 text-[11px] font-normal text-[#ff9f0a]">увага</span>
+                    )}
+                  </p>
+                  <p className="font-display text-[1.65rem] font-semibold leading-none tracking-tight tabular-nums">
+                    {fmt(reading?.temperature ?? null)}
+                    <span className="ml-0.5 text-[0.9rem] font-medium text-[#86868b]">°C</span>
+                  </p>
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
+                  <div>
+                    <dt className="text-[#86868b]">RH %*</dt>
+                    <dd className="mt-0.5 tabular-nums text-[#1d1d1f]">
+                      {fmt(reading?.humidity ?? null)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[#86868b]">VPD*</dt>
+                    <dd className="mt-0.5 tabular-nums text-[#1d1d1f]">
+                      {fmt(reading?.vpd ?? null, 2)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[#86868b]">Dew*</dt>
+                    <dd className="mt-0.5 tabular-nums text-[#1d1d1f]">
+                      {fmt(reading?.dewPoint ?? null)}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-2 text-[12px] text-[#86868b]">
+                  {reading?.ts ? shortWhen(new Date(reading.ts)) : "немає даних"}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="cab-panel hidden overflow-x-auto sm:block">
           <table className="min-w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-black/[0.06] text-[#86868b]">

@@ -32,12 +32,12 @@ export function ProductsView() {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(800px_420px_at_85%_10%,rgba(42,122,74,0.34),transparent_62%)]"
         />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:px-8 lg:py-24">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-12 sm:gap-10 sm:px-6 sm:py-16 lg:grid-cols-12 lg:px-8 lg:py-24">
           <div className="lg:col-span-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-wheat">
               Продукція
             </p>
-            <h1 className="mt-4 font-display text-3xl leading-tight font-medium tracking-tight sm:text-5xl">
+            <h1 className="mt-4 font-display text-[1.75rem] leading-[1.15] font-medium tracking-tight sm:text-4xl lg:text-5xl">
               Система активного моніторингу мікроклімату Alicorn Agro
               (ClimateGuard)
             </h1>
@@ -55,27 +55,23 @@ export function ProductsView() {
             </p>
           </div>
           <div className="lg:col-span-6">
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-2 backdrop-blur-sm sm:p-3">
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-2 backdrop-blur-sm sm:p-3">
               <ProductModelViewer />
-              <div className="pointer-events-none absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-auto">
-                <div className="w-fit max-w-full rounded-2xl border border-white/10 bg-forest-deeper/75 px-4 py-3 backdrop-blur-md">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-wheat">
-                    Активний аспіраційний канал
-                  </p>
-                  <p className="mt-1 font-display text-2xl tracking-tight">
-                    IP65
-                  </p>
-                  <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-cream/65">
-                    Захист електронного відсіку від бризок, аерозолів і пилу.
-                  </p>
-                </div>
-              </div>
+            </div>
+            <div className="mt-3 w-fit max-w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md lg:mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-wheat">
+                Активний аспіраційний канал
+              </p>
+              <p className="mt-1 font-display text-2xl tracking-tight">IP65</p>
+              <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-cream/65">
+                Захист електронного відсіку від бризок, аерозолів і пилу.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
         <Reveal>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
             Ключовий функціонал
@@ -110,7 +106,7 @@ export function ProductsView() {
       </section>
 
       <section className="bg-white/60">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
               Інженерія та ПЗ
@@ -140,7 +136,7 @@ export function ProductsView() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
         <Reveal>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
             Технічні характеристики
@@ -150,8 +146,24 @@ export function ProductsView() {
           </h2>
         </Reveal>
 
-        <Reveal className="mt-10">
-          <div className="overflow-x-auto rounded-3xl bg-white ring-1 ring-forest/10">
+        <Reveal className="mt-8 sm:mt-10">
+          <ul className="space-y-3 md:hidden">
+            {productTable.map((row) => (
+              <li
+                key={row.parameter}
+                className="rounded-3xl bg-white p-5 ring-1 ring-forest/10"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-forest">
+                  {row.parameter}
+                </p>
+                <p className="mt-2 font-display text-lg tracking-tight text-forest-dark">
+                  {row.value}
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">{row.note}</p>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-3xl bg-white ring-1 ring-forest/10 md:block">
             <table className="min-w-full text-left text-sm">
               <caption className="sr-only">
                 Технічні характеристики системи ClimateGuard
@@ -194,7 +206,7 @@ export function ProductsView() {
       </section>
 
       <section className="bg-white/60">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
               Цінність для бізнесу
@@ -221,7 +233,7 @@ export function ProductsView() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <Reveal>
           <div className="rounded-[2rem] bg-mint px-6 py-10 sm:px-10 lg:px-12">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
@@ -259,7 +271,7 @@ export function ProductsView() {
             запропонуємо економічно обґрунтоване рішення.
           </p>
           <div className="mt-8">
-            <ConsultButton variant="light" showArrow />
+            <ConsultButton variant="light" showArrow className="w-full sm:w-auto" />
           </div>
         </div>
       </section>

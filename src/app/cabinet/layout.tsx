@@ -11,7 +11,7 @@ export default async function CabinetLayout({ children }: { children: React.Reac
   return (
     <div className="cabinet flex min-h-full flex-1 flex-col">
       <CabinetNav userEmail={session.user.email} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-28 sm:px-8 sm:py-14">
         {children}
       </main>
     </div>

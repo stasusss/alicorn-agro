@@ -9,7 +9,7 @@ const icons = [LineChart, Sprout, Cpu, Headset];
 
 export function ServicesGrid() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+    <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
       <div className="max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-forest">
           Послуги

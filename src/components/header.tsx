@@ -28,14 +28,15 @@ export function Header() {
   }, [open]);
 
   return (
+    <>
     <header
-      className={`sticky top-0 z-40 transition-all duration-300 ${
+      className={`sticky top-0 z-40 pt-[env(safe-area-inset-top)] transition-all duration-300 ${
         scrolled || open
           ? "border-b border-forest/10 bg-cream/95 backdrop-blur-xl"
           : "border-b border-transparent bg-cream/70 backdrop-blur-md"
       }`}
     >
-      <div className="mx-auto flex h-[4.25rem] max-w-6xl items-center justify-between px-4 sm:px-6 lg:h-[4.75rem] lg:px-8">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:h-[4.75rem] lg:px-8">
         <Logo />
 
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Головна навігація">
@@ -63,7 +64,7 @@ export function Header() {
 
         <button
           type="button"
-          className="rounded-full p-2 text-forest-dark transition-colors hover:bg-mint lg:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-forest-dark transition-colors hover:bg-mint lg:hidden"
           aria-expanded={open}
           aria-controls="mobile-navigation"
           aria-label={open ? "Закрити меню" : "Відкрити меню"}
@@ -72,6 +73,7 @@ export function Header() {
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
+    </header>
 
       <AnimatePresence>
         {open ? (
@@ -81,7 +83,8 @@ export function Header() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22 }}
-            className="border-t border-forest/10 bg-cream px-4 py-4 lg:hidden"
+            className="fixed inset-x-0 bottom-0 z-30 overflow-y-auto border-t border-forest/10 bg-cream px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden"
+            style={{ top: "calc(4rem + env(safe-area-inset-top))" }}
             aria-label="Мобільна навігація"
           >
             <div className="flex flex-col gap-1">
@@ -97,7 +100,7 @@ export function Header() {
                     <Link
                       href={item.href}
                       onClick={() => setOpen(false)}
-                      className={`block rounded-2xl px-4 py-3 text-base font-medium transition-colors ${
+                      className={`block min-h-12 rounded-2xl px-4 py-3.5 text-base font-medium transition-colors ${
                         active ? "bg-mint text-forest-dark" : "text-ink hover:bg-mint/60"
                       }`}
                     >
@@ -111,6 +114,6 @@ export function Header() {
           </motion.nav>
         ) : null}
       </AnimatePresence>
-    </header>
+    </>
   );
 }
