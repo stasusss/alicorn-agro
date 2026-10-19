@@ -1,5 +1,6 @@
 import { getDb } from "@/db";
 import { organizations, readings, sensors } from "@/db/schema";
+import { bucketStartMs, DISPLAY_WINDOW_MS, smoothReadingWindows } from "@/lib/cabinet/smoothing";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 
 const IDEAL = {
@@ -202,7 +203,7 @@ export async function buildAnalyticsReport(
     .where(and(eq(sensors.organizationId, organizationId), eq(sensors.active, true)))
     .orderBy(asc(sensors.name));
 
-  const rows = await db
+  const rawRows = await db
     .select({
       sensorId: readings.sensorId,
       ts: readings.ts,
@@ -215,13 +216,35 @@ export async function buildAnalyticsReport(
     .where(
       and(
         eq(readings.organizationId, organizationId),
-        gte(readings.ts, from),
+        gte(readings.ts, new Date(bucketStartMs(from.getTime()))),
         lte(readings.ts, to),
       ),
     )
     .orderBy(asc(readings.ts));
 
-  const nameById = new Map(orgSensors.map((s) => [s.id, s.name]));
+  const rawBySensor = new Map<string, typeof rawRows>();
+  for (const row of rawRows) {
+    const list = rawBySensor.get(row.sensorId) ?? [];
+    list.push(row);
+    rawBySensor.set(row.sensorId, list);
+  }
+
+  const rows: typeof rawRows = [];
+  for (const [sensorId, samples] of rawBySensor) {
+    for (const window of smoothReadingWindows(samples)) {
+      const start = window.ts.getTime();
+      if (start + DISPLAY_WINDOW_MS <= from.getTime() || start > to.getTime()) continue;
+      rows.push({
+        sensorId,
+        ts: window.ts,
+        temperature: window.temperature,
+        humidity: window.humidity,
+        vpd: window.vpd,
+        dewPoint: window.dewPoint,
+      });
+    }
+  }
+
   const bySensor = new Map<string, typeof rows>();
   for (const row of rows) {
     const list = bySensor.get(row.sensorId) ?? [];
@@ -275,7 +298,7 @@ export async function buildAnalyticsReport(
     }
     if (s.outsideIdealShare >= PROBLEM_SHARE) {
       reasons.push(
-        `${Math.round(s.outsideIdealShare * 100)}% вимірювань поза комфортним діапазоном (T/RH/VPD)`,
+        `${Math.round(s.outsideIdealShare * 100)}% інтервалів по 5 хв поза комфортним діапазоном (T/RH/VPD)`,
       );
     }
     if (s.avgVpd < IDEAL.vpd.min) reasons.push(`низький середній VPD (${s.avgVpd} kPa)`);
@@ -476,7 +499,7 @@ export function renderReportHtml(report: AnalyticsReport, opts?: { autoPrint?: b
   <div class="wrap">
     <h1>Аналітичний звіт</h1>
     <p class="muted">${esc(report.organizationName)} · період ${esc(fmt(report.from))} — ${esc(fmt(report.to))}<br/>
-    Згенеровано ${esc(fmt(report.generatedAt))} · вимірювань: ${report.sampleCount}</p>
+    Згенеровано ${esc(fmt(report.generatedAt))} · інтервалів по 5 хв: ${report.sampleCount}</p>
     ${printBtn}
 
     <h2>Середні показники</h2>
@@ -496,8 +519,8 @@ export function renderReportHtml(report: AnalyticsReport, opts?: { autoPrint?: b
       <div class="card"><span>Середнє відхилення зон</span><b>${report.overall.avgAbsDeviation} °C</b></div>
       <div class="card"><span>Діапазон T</span><b>${report.overall.minTemp}…${report.overall.maxTemp}</b></div>
     </div>
-    <p class="muted" style="margin-top:12px">Макс. різниця за період — між найхолоднішим і найтеплішим вимірюванням.
-      Макс. різниця в кадрі — найбільший розкид між датчиками в один момент часу.
+    <p class="muted" style="margin-top:12px">Макс. різниця за період — між найхолоднішим і найтеплішим 5-хвилинним значенням.
+      Макс. різниця в кадрі — найбільший розкид між датчиками в одному 5-хвилинному вікні.
       Середнє відхилення — середнє |T зони − середня по теплиці|.</p>
 
     <h2>По датчиках</h2>

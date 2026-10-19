@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { readings, sensors } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { bucketStartMs, DISPLAY_WINDOW_MS, smoothReadingWindows } from "@/lib/cabinet/smoothing";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
   const db = await getDb();
   const rows = await db
     .select({
+      sensorId: readings.sensorId,
       ts: readings.ts,
       temperature: readings.temperature,
       humidity: readings.humidity,
@@ -56,11 +58,55 @@ export async function GET(request: Request) {
     .where(
       and(
         eq(readings.organizationId, session.user.organizationId),
-        gte(readings.ts, from),
+        gte(readings.ts, new Date(bucketStartMs(from.getTime()))),
         lte(readings.ts, to),
       ),
     )
     .orderBy(asc(readings.ts), asc(sensors.name));
+
+  const bySensor = new Map<
+    string,
+    {
+      name: string;
+      externalId: string;
+      points: { ts: Date; temperature: number; humidity: number; vpd: number; dewPoint: number }[];
+    }
+  >();
+  for (const row of rows) {
+    const group = bySensor.get(row.sensorId) ?? {
+      name: row.sensorName,
+      externalId: row.sensorExternalId,
+      points: [],
+    };
+    group.points.push(row);
+    bySensor.set(row.sensorId, group);
+  }
+
+  const windows: {
+    ts: Date;
+    externalId: string;
+    name: string;
+    temperature: number;
+    humidity: number;
+    vpd: number;
+    dewPoint: number;
+  }[] = [];
+  for (const group of bySensor.values()) {
+    for (const window of smoothReadingWindows(group.points)) {
+      const start = window.ts.getTime();
+      if (start + DISPLAY_WINDOW_MS <= from.getTime() || start > to.getTime()) continue;
+      windows.push({
+        ts: window.ts,
+        externalId: group.externalId,
+        name: group.name,
+        temperature: window.temperature,
+        humidity: window.humidity,
+        vpd: window.vpd,
+        dewPoint: window.dewPoint,
+      });
+    }
+  }
+  windows.sort((a, b) => a.ts.getTime() - b.ts.getTime() || a.name.localeCompare(b.name, "uk"));
 
   const header = [
     "ts_utc",
@@ -73,12 +119,12 @@ export async function GET(request: Request) {
   ];
 
   const lines = [header.join(",")];
-  for (const row of rows) {
+  for (const row of windows) {
     lines.push(
       [
         csvEscape(row.ts.toISOString()),
-        csvEscape(row.sensorExternalId),
-        csvEscape(row.sensorName),
+        csvEscape(row.externalId),
+        csvEscape(row.name),
         csvEscape(row.temperature),
         csvEscape(row.humidity),
         csvEscape(row.vpd),

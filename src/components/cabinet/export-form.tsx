@@ -25,7 +25,7 @@ export function ExportForm() {
           CSV
         </h2>
         <p className="mt-1 text-[13px] text-[#86868b]">
-          Повний набір вимірювань без аналітики.
+          По одному рядку на датчик за кожні 5 хвилин: температура, вологість, VPD і точка роси.
         </p>
       </div>
       <label className="block text-[13px] text-[#86868b]">

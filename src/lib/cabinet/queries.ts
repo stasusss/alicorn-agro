@@ -1,8 +1,14 @@
 import { getDb } from "@/db";
 import { gateways, organizations, readings, sensors } from "@/db/schema";
-import { bucketStartMs, DISPLAY_WINDOW_MS, smoothedWindowAverage, smoothTimeSeries } from "@/lib/cabinet/smoothing";
+import {
+  averageByBucket,
+  bucketStartMs,
+  DISPLAY_WINDOW_MS,
+  smoothReadingWindows,
+  smoothTimeSeries,
+} from "@/lib/cabinet/smoothing";
 import { getDayNightWindow, getUtcDayBounds } from "@/lib/sun";
-import { and, asc, avg, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
 
 export async function getOrganization(organizationId: string) {
   const db = await getDb();
@@ -41,21 +47,71 @@ export async function getSmoothedLatestReading(sensorId: string) {
     .from(readings)
     .where(and(eq(readings.sensorId, sensorId), gte(readings.ts, start), lt(readings.ts, end)))
     .orderBy(asc(readings.ts));
-  if (rows.length === 0) return null;
-
+  const [window] = smoothReadingWindows(rows);
+  if (!window) return null;
   const last = rows[rows.length - 1];
-  const smooth = (pick: (row: (typeof rows)[number]) => number) => {
-    const value = smoothedWindowAverage(rows.map(pick));
-    return value === null ? pick(last) : value;
-  };
 
   return {
     ...last,
-    temperature: smooth((row) => row.temperature),
-    humidity: smooth((row) => row.humidity),
-    vpd: smooth((row) => row.vpd),
-    dewPoint: smooth((row) => row.dewPoint),
+    temperature: window.temperature,
+    humidity: window.humidity,
+    vpd: window.vpd,
+    dewPoint: window.dewPoint,
   };
+}
+
+function mean(values: number[]) {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/** One smoothed temperature per sensor per 5-minute window that overlaps [from, to]. */
+async function smoothedTemperatures(organizationId: string, from: Date, to: Date) {
+  const db = await getDb();
+  const rows = await db
+    .select({
+      sensorId: readings.sensorId,
+      ts: readings.ts,
+      value: readings.temperature,
+    })
+    .from(readings)
+    .where(
+      and(
+        eq(readings.organizationId, organizationId),
+        gte(readings.ts, new Date(bucketStartMs(from.getTime()))),
+        lte(readings.ts, to),
+      ),
+    )
+    .orderBy(asc(readings.ts));
+
+  const bySensor = new Map<string, { ts: Date; value: number }[]>();
+  for (const row of rows) {
+    const list = bySensor.get(row.sensorId) ?? [];
+    list.push({ ts: row.ts, value: row.value });
+    bySensor.set(row.sensorId, list);
+  }
+
+  const points: { sensorId: string; ts: Date; value: number }[] = [];
+  for (const [sensorId, series] of bySensor) {
+    for (const window of smoothTimeSeries(series)) {
+      const start = window.ts.getTime();
+      if (start + DISPLAY_WINDOW_MS <= from.getTime() || start > to.getTime()) continue;
+      points.push({ sensorId, ts: window.ts, value: window.value });
+    }
+  }
+  return points;
+}
+
+function meanTemperatureBetween(
+  points: { ts: Date; value: number }[],
+  from: Date,
+  to: Date,
+) {
+  return mean(
+    points
+      .filter((point) => point.ts >= from && point.ts <= to)
+      .map((point) => point.value),
+  );
 }
 
 export async function getLatestReadingsBySensor(organizationId: string) {
@@ -73,7 +129,6 @@ export async function getLatestReadingsBySensor(organizationId: string) {
 }
 
 export async function getTemperatureAggregates(organizationId: string) {
-  const db = await getDb();
   const org = await getOrganization(organizationId);
   if (!org) {
     return { dailyAvg: null, dayAvg: null, nightAvg: null };
@@ -82,46 +137,14 @@ export async function getTemperatureAggregates(organizationId: string) {
   const now = new Date();
   const { start: dayStart, end: dayEnd } = getUtcDayBounds(now, org.timezone);
   const window = getDayNightWindow(now, org.latitude, org.longitude);
-
-  const [daily] = await db
-    .select({ value: avg(readings.temperature) })
-    .from(readings)
-    .where(
-      and(
-        eq(readings.organizationId, organizationId),
-        gte(readings.ts, dayStart),
-        lte(readings.ts, dayEnd),
-      ),
-    );
-
-  const [dayPart] = await db
-    .select({ value: avg(readings.temperature) })
-    .from(readings)
-    .where(
-      and(
-        eq(readings.organizationId, organizationId),
-        gte(readings.ts, window.sunrise),
-        lte(readings.ts, window.sunset),
-      ),
-    );
-
-  const [nightPart] = await db
-    .select({ value: avg(readings.temperature) })
-    .from(readings)
-    .where(
-      and(
-        eq(readings.organizationId, organizationId),
-        gte(readings.ts, window.previousSunset),
-        lte(readings.ts, window.sunrise),
-      ),
-    );
-
-  const toNum = (v: string | null) => (v === null ? null : Number(v));
+  const spanFrom = window.previousSunset < dayStart ? window.previousSunset : dayStart;
+  const spanTo = window.sunset > dayEnd ? window.sunset : dayEnd;
+  const points = await smoothedTemperatures(organizationId, spanFrom, spanTo);
 
   return {
-    dailyAvg: toNum(daily?.value ?? null),
-    dayAvg: toNum(dayPart?.value ?? null),
-    nightAvg: toNum(nightPart?.value ?? null),
+    dailyAvg: meanTemperatureBetween(points, dayStart, dayEnd),
+    dayAvg: meanTemperatureBetween(points, window.sunrise, window.sunset),
+    nightAvg: meanTemperatureBetween(points, window.previousSunset, window.sunrise),
     windows: {
       dayStart: dayStart.toISOString(),
       dayEnd: dayEnd.toISOString(),
@@ -133,29 +156,23 @@ export async function getTemperatureAggregates(organizationId: string) {
 }
 
 export async function getDailyAvgTemperatureBySensor(organizationId: string) {
-  const db = await getDb();
   const org = await getOrganization(organizationId);
   if (!org) return new Map<string, number>();
 
   const { start, end } = getUtcDayBounds(new Date(), org.timezone);
-  const rows = await db
-    .select({
-      sensorId: readings.sensorId,
-      value: avg(readings.temperature),
-    })
-    .from(readings)
-    .where(
-      and(
-        eq(readings.organizationId, organizationId),
-        gte(readings.ts, start),
-        lte(readings.ts, end),
-      ),
-    )
-    .groupBy(readings.sensorId);
+  const points = await smoothedTemperatures(organizationId, start, end);
+  const bySensor = new Map<string, number[]>();
+  for (const point of points) {
+    if (point.ts < start || point.ts > end) continue;
+    const list = bySensor.get(point.sensorId) ?? [];
+    list.push(point.value);
+    bySensor.set(point.sensorId, list);
+  }
 
   const map = new Map<string, number>();
-  for (const row of rows) {
-    if (row.value !== null) map.set(row.sensorId, Number(row.value));
+  for (const [sensorId, values] of bySensor) {
+    const value = mean(values);
+    if (value !== null) map.set(sensorId, value);
   }
   return map;
 }
@@ -168,15 +185,6 @@ export async function getChartSeries(params: {
   sensorIds?: string[];
 }) {
   const db = await getDb();
-  const column =
-    params.metric === "temperature"
-      ? readings.temperature
-      : params.metric === "humidity"
-        ? readings.humidity
-        : params.metric === "vpd"
-          ? readings.vpd
-          : readings.dewPoint;
-
   const conditions = [
     eq(readings.organizationId, params.organizationId),
     gte(readings.ts, new Date(bucketStartMs(params.from.getTime()))),
@@ -192,27 +200,58 @@ export async function getChartSeries(params: {
     );
   }
 
-  const rows = await db
-    .select({
-      sensorId: readings.sensorId,
-      ts: readings.ts,
-      value: column,
-    })
-    .from(readings)
-    .where(and(...conditions))
-    .orderBy(asc(readings.ts));
-
-  const bySensor = new Map<string, { ts: Date; value: number }[]>();
-  for (const row of rows) {
-    const list = bySensor.get(row.sensorId) ?? [];
-    list.push({ ts: row.ts, value: Number(row.value) });
-    bySensor.set(row.sensorId, list);
-  }
-
   const smoothed: { sensorId: string; ts: Date; value: number }[] = [];
-  for (const [sensorId, points] of bySensor) {
-    for (const bucket of smoothTimeSeries(points)) {
-      smoothed.push({ sensorId, ts: bucket.ts, value: bucket.value });
+
+  if (params.metric === "vpd" || params.metric === "dew_point") {
+    const rows = await db
+      .select({
+        sensorId: readings.sensorId,
+        ts: readings.ts,
+        temperature: readings.temperature,
+        humidity: readings.humidity,
+      })
+      .from(readings)
+      .where(and(...conditions))
+      .orderBy(asc(readings.ts));
+
+    const bySensor = new Map<string, { ts: Date; temperature: number; humidity: number }[]>();
+    for (const row of rows) {
+      const list = bySensor.get(row.sensorId) ?? [];
+      list.push(row);
+      bySensor.set(row.sensorId, list);
+    }
+
+    for (const [sensorId, points] of bySensor) {
+      for (const window of smoothReadingWindows(points)) {
+        smoothed.push({
+          sensorId,
+          ts: window.ts,
+          value: params.metric === "vpd" ? window.vpd : window.dewPoint,
+        });
+      }
+    }
+  } else {
+    const rows = await db
+      .select({
+        sensorId: readings.sensorId,
+        ts: readings.ts,
+        value: params.metric === "temperature" ? readings.temperature : readings.humidity,
+      })
+      .from(readings)
+      .where(and(...conditions))
+      .orderBy(asc(readings.ts));
+
+    const bySensor = new Map<string, { ts: Date; value: number }[]>();
+    for (const row of rows) {
+      const list = bySensor.get(row.sensorId) ?? [];
+      list.push({ ts: row.ts, value: Number(row.value) });
+      bySensor.set(row.sensorId, list);
+    }
+
+    for (const [sensorId, points] of bySensor) {
+      for (const bucket of smoothTimeSeries(points)) {
+        smoothed.push({ sensorId, ts: bucket.ts, value: bucket.value });
+      }
     }
   }
 
@@ -236,34 +275,22 @@ export async function getHeatmapFrames(params: {
   from: Date;
   to: Date;
 }) {
-  const db = await getDb();
   const bucket = heatmapBucketSeconds(params.from, params.to);
-  const result = await db.execute<{
-    sensorId: string;
-    bucket: string;
-    temperature: number | string;
-  }>(sql`
-    select
-      sensor_id as "sensorId",
-      to_timestamp(floor(extract(epoch from ts) / ${bucket}) * ${bucket}) as bucket,
-      avg(temperature) as temperature
-    from readings
-    where organization_id = ${params.organizationId}::uuid
-      and ts >= ${params.from}
-      and ts <= ${params.to}
-    group by sensor_id, bucket
-    order by bucket
-  `);
-  const rows = Array.isArray(result) ? result : result.rows;
+  const points = await smoothedTemperatures(params.organizationId, params.from, params.to);
+  const bySensor = new Map<string, { ts: Date; value: number }[]>();
+  for (const point of points) {
+    const list = bySensor.get(point.sensorId) ?? [];
+    list.push({ ts: point.ts, value: point.value });
+    bySensor.set(point.sensorId, list);
+  }
 
   const byBucket = new Map<number, Record<string, number>>();
-  for (const row of rows) {
-    if (row.temperature === null) continue;
-    const time = new Date(row.bucket).getTime();
-    if (!Number.isFinite(time)) continue;
-    const slot = byBucket.get(time) ?? {};
-    slot[row.sensorId] = Number(row.temperature);
-    byBucket.set(time, slot);
+  for (const [sensorId, series] of bySensor) {
+    for (const frame of averageByBucket(series, bucket * 1000)) {
+      const slot = byBucket.get(frame.ts.getTime()) ?? {};
+      slot[sensorId] = frame.value;
+      byBucket.set(frame.ts.getTime(), slot);
+    }
   }
 
   const times = [...byBucket.keys()].sort((a, b) => a - b);
@@ -366,31 +393,10 @@ export async function getDayOverDayTempCompare(organizationId: string) {
   const yStart = new Date(hourStart.getTime() - 24 * 60 * 60_000);
   const yEnd = new Date(hourEnd.getTime() - 24 * 60 * 60_000);
 
-  const db = await getDb();
-  const [today] = await db
-    .select({ value: avg(readings.temperature) })
-    .from(readings)
-    .where(
-      and(
-        eq(readings.organizationId, organizationId),
-        gte(readings.ts, hourStart),
-        lte(readings.ts, now),
-      ),
-    );
-  const [yesterday] = await db
-    .select({ value: avg(readings.temperature) })
-    .from(readings)
-    .where(
-      and(
-        eq(readings.organizationId, organizationId),
-        gte(readings.ts, yStart),
-        lte(readings.ts, yEnd),
-      ),
-    );
-
-  const todayAvg = today?.value === null || today?.value === undefined ? null : Number(today.value);
-  const yesterdayAvg =
-    yesterday?.value === null || yesterday?.value === undefined ? null : Number(yesterday.value);
+  const todayPoints = await smoothedTemperatures(organizationId, hourStart, now);
+  const yesterdayPoints = await smoothedTemperatures(organizationId, yStart, yEnd);
+  const todayAvg = meanTemperatureBetween(todayPoints, hourStart, now);
+  const yesterdayAvg = meanTemperatureBetween(yesterdayPoints, yStart, yEnd);
 
   if (todayAvg === null || yesterdayAvg === null) {
     return { todayAvg, yesterdayAvg, delta: null as number | null };

@@ -1,24 +1,30 @@
-/** Magnus formula constants (Alduchov & Eskridge). */
-const A = 17.625;
-const B = 243.04;
+const MAGNUS_A = 17.27;
+const MAGNUS_B = 237.3;
 
-/** Saturation vapor pressure in kPa from temperature °C. */
-export function saturationVaporPressureKPa(temperatureC: number): number {
-  return 0.61078 * Math.exp((A * temperatureC) / (B + temperatureC));
-}
-
-/** Vapor pressure deficit in kPa. */
+/**
+ * VPD in kPa.
+ * 0.6108 × exp(17.27 × T / (T + 237.3)) × (1 − RH / 100)
+ */
 export function vaporPressureDeficit(temperatureC: number, relativeHumidity: number): number {
-  const es = saturationVaporPressureKPa(temperatureC);
-  const ea = es * (relativeHumidity / 100);
-  return Math.max(0, es - ea);
+  const saturation =
+    0.6108 * Math.exp((MAGNUS_A * temperatureC) / (temperatureC + MAGNUS_B));
+  return Math.max(0, saturation * (1 - relativeHumidity / 100));
 }
 
-/** Dew point °C from temperature and RH %. */
+/** Saturation vapor pressure in kPa from temperature °C. Same curve as VPD. */
+export function saturationVaporPressureKPa(temperatureC: number): number {
+  return vaporPressureDeficit(temperatureC, 0);
+}
+
+/**
+ * Dew point °C.
+ * γ = ln(RH/100) + 17.27 × T / (T + 237.3)
+ * Td = 237.3 × γ / (17.27 − γ)
+ */
 export function dewPointC(temperatureC: number, relativeHumidity: number): number {
   const rh = Math.min(100, Math.max(0.01, relativeHumidity));
-  const gamma = Math.log(rh / 100) + (A * temperatureC) / (B + temperatureC);
-  return (B * gamma) / (A - gamma);
+  const gamma = Math.log(rh / 100) + (MAGNUS_A * temperatureC) / (temperatureC + MAGNUS_B);
+  return (MAGNUS_B * gamma) / (MAGNUS_A - gamma);
 }
 
 export function computeDerivedMetrics(temperatureC: number, relativeHumidity: number) {

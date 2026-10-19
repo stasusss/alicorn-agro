@@ -11,7 +11,7 @@ import { join } from "node:path";
 const dir = mkdtempSync(join(tmpdir(), "alicorn-smooth-"));
 process.env.DATABASE_URL = `pglite:${join(dir, "db")}`;
 
-function assert(condition: boolean, message: string) {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
   console.log("ok", message);
 }
@@ -21,8 +21,24 @@ function near(actual: number, expected: number) {
 }
 
 async function main() {
-  const { smoothedWindowAverage, smoothTimeSeries, bucketStartMs, DISPLAY_WINDOW_MS } =
-    await import("../src/lib/cabinet/smoothing");
+  const {
+    smoothedWindowAverage,
+    smoothTimeSeries,
+    smoothReadingWindows,
+    averageByBucket,
+    bucketStartMs,
+    DISPLAY_WINDOW_MS,
+  } = await import("../src/lib/cabinet/smoothing");
+  const { dewPointC, vaporPressureDeficit } = await import("../src/lib/climate");
+
+  const vpdAt25 = 0.6108 * Math.exp((17.27 * 25) / (25 + 237.3)) * (1 - 60 / 100);
+  assert(near(vaporPressureDeficit(25, 60), vpdAt25), "VPD formula at 25 °C and 60% RH");
+  assert(vaporPressureDeficit(20, 100) === 0, "saturated air has zero VPD");
+
+  const gamma = Math.log(60 / 100) + (17.27 * 25) / (25 + 237.3);
+  const dewAt25 = (237.3 * gamma) / (17.27 - gamma);
+  assert(near(dewPointC(25, 60), dewAt25), "dew point formula at 25 °C and 60% RH");
+  assert(near(dewPointC(20, 100), 20), "saturated air has dew point equal to temperature");
 
   assert(smoothedWindowAverage([]) === null, "empty window");
   assert(smoothedWindowAverage([7]) === 7, "single sample");
@@ -58,6 +74,33 @@ async function main() {
   assert(series.length === 2, "two buckets");
   assert(series[0].count === 4 && near(series[0].value, 19.05), "first bucket keeps time order");
   assert(series[1].count === 1 && series[1].value === 30, "boundary sample is its own bucket");
+
+  const multi = smoothReadingWindows([
+    { ts: new Date(windowStart + 30_000), temperature: 21, humidity: 60 },
+    { ts: new Date(windowStart), temperature: 18, humidity: 40 },
+    { ts: new Date(windowStart + 45_000), temperature: 20, humidity: 70 },
+    { ts: new Date(windowStart + 15_000), temperature: 19, humidity: 50 },
+  ]);
+  assert(multi.length === 1 && multi[0].count === 4, "all metrics share one window");
+  assert(near(multi[0].temperature, 19.05), "temperature in the shared window");
+  assert(near(multi[0].humidity, 49), "humidity uses the same formula");
+  assert(
+    near(multi[0].vpd, vaporPressureDeficit(multi[0].temperature, multi[0].humidity)),
+    "vpd is calculated from the 5-minute averages",
+  );
+  assert(
+    near(multi[0].dewPoint, dewPointC(multi[0].temperature, multi[0].humidity)),
+    "dew point is calculated from the 5-minute averages",
+  );
+
+  const rolled = averageByBucket(
+    [
+      { ts: new Date(windowStart), value: 19.05 },
+      { ts: new Date(windowStart + DISPLAY_WINDOW_MS), value: 30 },
+    ],
+    10 * 60_000,
+  );
+  assert(rolled.length === 1 && near(rolled[0].value, 24.525), "wider frame averages the 5-minute values");
 
   const { getDb } = await import("../src/db");
   const { gateways, organizations, readings, sensors } = await import("../src/db/schema");
@@ -122,8 +165,14 @@ async function main() {
   assert(latestA !== null, "sensor A has a window");
   assert(near(latestA.temperature, 19.05), "latest temperature is the 5-minute smooth");
   assert(near(latestA.humidity, 49), "humidity is smoothed on its own");
-  assert(near(latestA.vpd, 1.075), "vpd is smoothed on its own");
-  assert(latestA.dewPoint === 8, "flat dew point");
+  assert(
+    near(latestA.vpd, vaporPressureDeficit(latestA.temperature, latestA.humidity)),
+    "latest vpd comes from the smoothed temperature and humidity",
+  );
+  assert(
+    near(latestA.dewPoint, dewPointC(latestA.temperature, latestA.humidity)),
+    "latest dew point comes from the smoothed temperature and humidity",
+  );
   assert(latestA.ts.getTime() === windowStart + 45_000, "timestamp stays the last raw sample");
 
   const latestB = await getSmoothedLatestReading(sensorB.id);
@@ -152,6 +201,46 @@ async function main() {
   assert(chart.length === 2, "chart returns one point per 5-minute window");
   assert(chart[0].ts.getTime() === windowStart && near(chart[0].value, 19.05), "partial range still uses the whole window");
   assert(chart[1].ts.getTime() === windowStart + DISPLAY_WINDOW_MS && chart[1].value === 30, "boundary point is the next window");
+
+  const humidityChart = await getChartSeries({
+    organizationId: org.id,
+    metric: "humidity",
+    from: new Date(windowStart),
+    to: new Date(windowStart + DISPLAY_WINDOW_MS),
+    sensorIds: [sensorA.id],
+  });
+  assert(
+    humidityChart.length === 2 && near(humidityChart[0].value, 49) && humidityChart[1].value === 80,
+    "humidity chart is one smoothed value per window",
+  );
+
+  const vpdChart = await getChartSeries({
+    organizationId: org.id,
+    metric: "vpd",
+    from: new Date(windowStart),
+    to: new Date(windowStart + DISPLAY_WINDOW_MS),
+    sensorIds: [sensorA.id],
+  });
+  assert(
+    vpdChart.length === 2 &&
+      near(vpdChart[0].value, vaporPressureDeficit(chart[0].value, humidityChart[0].value)) &&
+      near(vpdChart[1].value, vaporPressureDeficit(30, 80)),
+    "vpd chart uses the 5-minute temperature and humidity",
+  );
+
+  const dewChart = await getChartSeries({
+    organizationId: org.id,
+    metric: "dew_point",
+    from: new Date(windowStart),
+    to: new Date(windowStart + DISPLAY_WINDOW_MS),
+    sensorIds: [sensorA.id],
+  });
+  assert(
+    dewChart.length === 2 &&
+      near(dewChart[0].value, dewPointC(chart[0].value, humidityChart[0].value)) &&
+      near(dewChart[1].value, dewPointC(30, 80)),
+    "dew point chart uses the 5-minute temperature and humidity",
+  );
 
   console.log("smoothing tests passed");
 }

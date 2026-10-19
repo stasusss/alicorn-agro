@@ -1,3 +1,5 @@
+import { dewPointC, vaporPressureDeficit } from "@/lib/climate";
+
 /** Sensors sample every 15s; the cabinet shows one smoothed value per 5 minutes (up to 20 samples). */
 export const DISPLAY_WINDOW_MS = 5 * 60 * 1000;
 
@@ -27,6 +29,72 @@ export function smoothedWindowAverage(values: readonly number[]): number | null 
 }
 
 export type TimedValue = { ts: Date; value: number };
+
+export type MetricSample = {
+  ts: Date;
+  temperature: number;
+  humidity: number;
+};
+
+export type SmoothedWindow = MetricSample & {
+  count: number;
+  vpd: number;
+  dewPoint: number;
+};
+
+/**
+ * One value per 5-minute window.
+ * Temperature and humidity are smoothed first. VPD and dew point are then
+ * calculated from those two averages, not from each raw sample.
+ */
+export function smoothReadingWindows(points: readonly MetricSample[]): SmoothedWindow[] {
+  const ordered = [...points].sort((a, b) => a.ts.getTime() - b.ts.getTime());
+  const buckets = new Map<number, MetricSample[]>();
+  for (const point of ordered) {
+    const start = bucketStartMs(point.ts.getTime());
+    const list = buckets.get(start);
+    if (list) list.push(point);
+    else buckets.set(start, [point]);
+  }
+
+  const windows: SmoothedWindow[] = [];
+  for (const [start, rows] of [...buckets.entries()].sort((a, b) => a[0] - b[0])) {
+    const temperature = smoothedWindowAverage(rows.map((row) => row.temperature));
+    const humidity = smoothedWindowAverage(rows.map((row) => row.humidity));
+    if (temperature === null || humidity === null) continue;
+    const vpd = vaporPressureDeficit(temperature, humidity);
+    const dewPoint = dewPointC(temperature, humidity);
+    windows.push({
+      ts: new Date(start),
+      count: rows.length,
+      temperature,
+      humidity,
+      vpd,
+      dewPoint,
+    });
+  }
+  return windows;
+}
+
+/** Plain mean of already-smoothed points, grouped into a wider frame. */
+export function averageByBucket(
+  points: readonly TimedValue[],
+  bucketMs: number,
+): { ts: Date; value: number }[] {
+  const groups = new Map<number, number[]>();
+  for (const point of points) {
+    const start = Math.floor(point.ts.getTime() / bucketMs) * bucketMs;
+    const list = groups.get(start);
+    if (list) list.push(point.value);
+    else groups.set(start, [point.value]);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([start, values]) => ({
+      ts: new Date(start),
+      value: values.reduce((sum, value) => sum + value, 0) / values.length,
+    }));
+}
 
 /** One smoothed point per 5-minute bucket. `ts` is the start of that bucket. */
 export function smoothTimeSeries(points: readonly TimedValue[]): { ts: Date; value: number; count: number }[] {
