@@ -12,7 +12,7 @@ export function ServiceGlyph({ index, className = "h-16 w-16" }: ServiceGlyphPro
       <img
         src={serviceArtwork[index]}
         alt=""
-        className="h-full w-full scale-110 object-cover"
+        className="h-full w-full object-contain"
       />
     </span>
   );
