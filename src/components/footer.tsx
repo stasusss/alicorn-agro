@@ -8,7 +8,7 @@ export function Footer() {
     <footer className="bg-forest-deeper text-cream">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-14 lg:grid-cols-12 lg:gap-12 lg:px-8 lg:py-16">
         <div className="lg:col-span-5">
-          <Logo inverted />
+          <Logo variant="lockup" tone="light" />
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-cream/70">
             Alicorn Agro — ваш надійний партнер у світі розумного землеробства.
             Інженерна точність зустрічається з фізіологією рослин.

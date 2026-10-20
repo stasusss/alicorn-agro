@@ -1,8 +1,9 @@
 "use client";
 
 import { ConsultButton } from "@/components/consult-button";
+import { site } from "@/lib/site";
 import { motion } from "framer-motion";
-import { ArrowDownRight, Droplets, Leaf, Thermometer, Wind } from "lucide-react";
+import { ArrowDownRight, ArrowRight, Droplets, Leaf, Thermometer, Wind } from "lucide-react";
 import Link from "next/link";
 
 const metrics = [
@@ -55,6 +56,15 @@ export function Hero() {
             className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
           >
             <ConsultButton variant="light" showArrow className="w-full sm:w-auto" />
+            <a
+              href={site.telegramHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-cream/85 ring-1 ring-white/20 transition-colors hover:bg-white/5 hover:text-white sm:w-auto"
+            >
+              <TelegramIcon />
+              Написати в Telegram
+            </a>
             <Link
               href="/services"
               className="inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-cream/85 ring-1 ring-white/20 transition-colors hover:bg-white/5 hover:text-white sm:w-auto"
@@ -100,10 +110,25 @@ export function Hero() {
                 </li>
               ))}
             </ul>
+            <Link
+              href="/cabinet"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cream px-4 py-3 text-sm font-semibold text-forest-dark transition-colors hover:bg-white"
+            >
+              Перейти в кабінет
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
           </div>
         </motion.aside>
       </div>
     </section>
+  );
+}
+
+function TelegramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden fill="currentColor">
+      <path d="M21.94 4.3 2.86 11.66c-1.3.52-1.29 1.24-.24 1.56l4.88 1.52 11.3-7.13c.53-.32 1.02-.15.62.21l-9.15 8.27-.35 5.15c.26.52.94.52 1.2.2l2.16-2.08 4.5 3.32c.83.46 1.42.22 1.63-.77l2.95-13.9c.3-1.22-.47-1.77-1.42-1.4Z" />
+    </svg>
   );
 }
 

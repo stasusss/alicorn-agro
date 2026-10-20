@@ -21,8 +21,10 @@ export function CabinetNav({ userEmail }: { userEmail: string }) {
         <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-3 px-4 sm:px-8">
           <Link
             href="/cabinet"
-            className="shrink-0 text-[15px] font-semibold tracking-tight text-[#1d1d1f]"
+            className="inline-flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-tight text-[#1d1d1f]"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mark.png" alt="" width={32} height={34} className="h-8 w-auto" />
             Alicorn
           </Link>
 

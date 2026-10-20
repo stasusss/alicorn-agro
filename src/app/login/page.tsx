@@ -17,7 +17,9 @@ export default async function LoginPage({
     <div className="cabinet flex min-h-full flex-1 flex-col">
       <header className="border-b border-black/[0.06] bg-[#f5f5f7]/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
+          <Link href="/" className="inline-flex items-center gap-2 text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mark.png" alt="" width={32} height={34} className="h-8 w-auto" />
             Alicorn
           </Link>
           <Link href="/" className="cab-link">

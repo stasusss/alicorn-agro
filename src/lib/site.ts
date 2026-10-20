@@ -4,6 +4,7 @@ export const site = {
   email: "partnership@alicorn-agro.com",
   phone: "+380 934 5280 83",
   phoneHref: "tel:+380934528083",
+  telegramHref: "https://t.me/+380934528083",
 } as const;
 
 export const navItems = [
@@ -12,6 +13,13 @@ export const navItems = [
   { href: "/services", label: "Послуги" },
   { href: "/products", label: "Продукція" },
   { href: "/login", label: "Кабінет" },
+] as const;
+
+export const serviceArtwork = [
+  "/services/consulting.webp",
+  "/services/soil.webp",
+  "/services/technology.webp",
+  "/services/support.webp",
 ] as const;
 
 export const services = [

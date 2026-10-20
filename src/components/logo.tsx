@@ -1,30 +1,46 @@
-"use client";
-
 import Link from "next/link";
 
 type LogoProps = {
-  inverted?: boolean;
+  variant?: "mark" | "lockup";
+  tone?: "brand" | "light";
+  href?: string;
 };
 
-export function Logo({ inverted = false }: LogoProps) {
+export function Logo({ variant = "mark", tone = "brand", href = "/" }: LogoProps) {
+  const light = tone === "light";
+
+  if (variant === "lockup") {
+    return (
+      <Link href={href} className="inline-flex shrink-0" aria-label="Alicorn Agro — на головну">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={light ? "/logo-lockup-light.png" : "/logo-lockup.png"}
+          alt=""
+          width={1024}
+          height={550}
+          className="h-24 w-auto sm:h-28"
+        />
+      </Link>
+    );
+  }
+
   return (
     <Link
-      href="/"
-      className={`group flex items-center gap-2.5 ${inverted ? "text-cream" : "text-ink"}`}
+      href={href}
+      className={`inline-flex shrink-0 items-center gap-2.5 ${light ? "text-cream" : "text-ink"}`}
       aria-label="Alicorn Agro — на головну"
     >
-      {/* Swap /logo.svg with the official brand file when available */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo.svg"
+        src="/logo-mark.png"
         alt=""
-        width={40}
-        height={40}
-        className="h-9 w-9 shrink-0 rounded-xl md:h-10 md:w-10"
+        width={602}
+        height={640}
+        className="h-9 w-auto md:h-10"
       />
       <span
         className={`font-display text-[0.95rem] font-medium tracking-tight md:text-base ${
-          inverted ? "text-cream" : "text-forest-dark"
+          light ? "text-cream" : "text-forest-dark"
         }`}
       >
         Alicorn Agro
