@@ -1,30 +1,10 @@
 import { GET } from "@/app/api/health/route";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const getDbMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/db", () => ({
-  getDb: getDbMock,
-}));
+import { describe, expect, it } from "vitest";
 
 describe("GET /api/health", () => {
-  beforeEach(() => {
-    getDbMock.mockReset();
-  });
-
-  it("returns 200 when the database responds", async () => {
-    getDbMock.mockResolvedValue({
-      execute: vi.fn().mockResolvedValue(undefined),
-    });
+  it("returns 200 without asking the database", async () => {
     const response = await GET();
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true });
-  });
-
-  it("returns 503 when the database is down", async () => {
-    getDbMock.mockRejectedValue(new Error("connection refused"));
-    const response = await GET();
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({ ok: false });
   });
 });

@@ -16,6 +16,7 @@
     "db:backup": "tsx scripts/backup-db.ts",
     "db:restore": "tsx scripts/restore-db.ts",
     "db:restrict-readings": "tsx scripts/apply-readings-restrict.ts",
+    "db:rollup": "tsx scripts/rollup-readings.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ingest": "tsx scripts/test-ingest.ts",
