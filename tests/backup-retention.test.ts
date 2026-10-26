@@ -1,4 +1,4 @@
-import { assertDumpListsTables, backupFileName, backupsToDelete, parseBackupKey } from "@/lib/backup/retention";
+import { assertDumpListsTables, backupFileName, backupsToDelete, githubReleaseAssetId, parseBackupKey } from "@/lib/backup/retention";
 import { assertBackupSource, assertRestoreTarget, sameDatabase } from "@/lib/backup/safety";
 import { describe, expect, it } from "vitest";
 
@@ -14,6 +14,8 @@ describe("backup retention", () => {
     expect(parseBackupKey(key("2026-10-19T15"))?.toISOString()).toBe("2026-10-19T15:00:00.000Z");
     expect(parseBackupKey(key("2026-02-31T00"))).toBeNull();
     expect(parseBackupKey("backups/other.dump.age")).toBeNull();
+    expect(githubReleaseAssetId("https://api.github.com/repos/acme/app/releases/assets/678825083")).toBe("678825083");
+    expect(() => githubReleaseAssetId("RA_kwDOVP1rS84odgx7")).toThrow(/asset id/);
   });
 
   it("keeps 30 daily dumps and the first dump of each recent month", () => {

@@ -68,6 +68,12 @@ export function backupsToDelete(keys: readonly string[], now = new Date()): stri
   return parsed.filter((item) => !keep.has(item.key)).map((item) => item.key);
 }
 
+export function githubReleaseAssetId(apiUrl: string | undefined) {
+  const id = apiUrl?.split("/").pop() ?? "";
+  if (!/^\d+$/.test(id)) throw new Error("Release asset id is missing");
+  return id;
+}
+
 export function assertDumpListsTables(listOutput: string) {
   const missing = REQUIRED_BACKUP_TABLES.filter(
     (table) => !new RegExp(`\\bTABLE public ${table}\\b`).test(listOutput),
