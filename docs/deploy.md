@@ -78,7 +78,7 @@ RESEND_API_KEY=...
 ALERT_EMAIL_FROM=alerts@alicorn-agro.com
 ```
 
-`DATABASE_URL` всередині Compose вказує на сервіс `postgres`, не на Neon і не на `127.0.0.1`. Пароль у URL має збігатися з `POSTGRES_PASSWORD`. Після першого запуску пароль живе в томі `postgres_data`: зміна рядка в `.env` сама по собі пароль у базі не міняє.
+`DATABASE_URL` всередині Compose вказує на сервіс `postgres`, не на Neon і не на `127.0.0.1`. Пароль у URL має збігатися з `POSTGRES_PASSWORD`. Том змонтований у `/var/lib/postgresql`: образ Postgres 18 так і очікує. Після першого запуску пароль живе в томі `postgres_data`: зміна рядка в `.env` сама по собі пароль у базі не міняє.
 
 ```bash
 chmod 600 /opt/alicorn/.env
