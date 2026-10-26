@@ -10,7 +10,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { assertDumpListsTables, backupObjectKey, backupsToDelete } from "../../src/lib/backup/retention";
+import { assertDumpListsTables, backupObjectKey, backupsToDelete, githubReleaseAssetId } from "../../src/lib/backup/retention";
 import { assertBackupSource, assertRestoreTarget } from "../../src/lib/backup/safety";
 import { run, runToFile } from "./exec";
 
@@ -132,11 +132,11 @@ async function uploadGithubBackup(repo: string, agePath: string, now: Date) {
     "--json",
     "assets",
   ]);
-  const assets = (JSON.parse(view) as { assets?: { id: number; name: string }[] }).assets ?? [];
+  const assets = (JSON.parse(view) as { assets?: { apiUrl?: string; name: string }[] }).assets ?? [];
   const doomed = new Set(backupsToDelete(assets.map((asset) => `backups/${asset.name}`), now));
   for (const asset of assets) {
     if (!doomed.has(`backups/${asset.name}`)) continue;
-    await run("gh", ["api", "--method", "DELETE", `repos/${repo}/releases/assets/${asset.id}`]);
+    await run("gh", ["api", "--method", "DELETE", `repos/${repo}/releases/assets/${githubReleaseAssetId(asset.apiUrl)}`]);
   }
 }
 
