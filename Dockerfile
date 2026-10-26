@@ -5,6 +5,13 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+FROM deps AS jobs
+WORKDIR /app
+COPY scripts ./scripts
+COPY src ./src
+COPY tsconfig.json ./
+CMD ["npx", "tsx", "scripts/rollup-readings.ts"]
+
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules

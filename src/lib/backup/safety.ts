@@ -1,7 +1,7 @@
 export function assertBackupSource(databaseUrl: string) {
   if (!databaseUrl) throw new Error("DATABASE_URL is not set");
   if (databaseUrl.startsWith("pglite:")) {
-    throw new Error("Refusing to dump a local PGlite file. Point DATABASE_URL at Neon.");
+    throw new Error("Refusing to dump a local PGlite file. Point DATABASE_URL at Postgres.");
   }
   let protocol = "";
   try {

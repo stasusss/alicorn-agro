@@ -176,11 +176,21 @@ export async function getDb(): Promise<Db> {
         return db;
       }
 
-      const { Pool, neonConfig } = await import("@neondatabase/serverless");
-      const ws = (await import("ws")).default;
-      neonConfig.webSocketConstructor = ws;
-      const pool = new Pool({ connectionString: url, max: 1 });
-      const { drizzle } = await import("drizzle-orm/neon-serverless");
+      const host = new URL(url).hostname;
+      if (host === "neon.tech" || host.endsWith(".neon.tech")) {
+        const { Pool, neonConfig } = await import("@neondatabase/serverless");
+        const ws = (await import("ws")).default;
+        neonConfig.webSocketConstructor = ws;
+        const pool = new Pool({ connectionString: url, max: 1 });
+        const { drizzle } = await import("drizzle-orm/neon-serverless");
+        const db = drizzle(pool, { schema }) as unknown as Db;
+        globalForDb.__alicornDb = db;
+        return db;
+      }
+
+      const { Pool } = await import("pg");
+      const pool = new Pool({ connectionString: url, max: 10 });
+      const { drizzle } = await import("drizzle-orm/node-postgres");
       const db = drizzle(pool, { schema }) as unknown as Db;
       globalForDb.__alicornDb = db;
       return db;
