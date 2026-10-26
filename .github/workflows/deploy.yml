@@ -1,0 +1,45 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["test"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: hetzner-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy to Hetzner
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${HETZNER_HOST}" || -z "${HETZNER_SSH_KEY}" ]]; then
+            echo "Add repository secrets HETZNER_HOST and HETZNER_SSH_KEY."
+            echo "Optional: HETZNER_USER (default deploy). See docs/deploy.md."
+            exit 1
+          fi
+          user="${HETZNER_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$HETZNER_SSH_KEY" > ~/.ssh/hetzner
+          chmod 600 ~/.ssh/hetzner
+          ssh-keyscan -H "$HETZNER_HOST" >> ~/.ssh/known_hosts
+          export RSYNC_RSH="ssh -i ${HOME}/.ssh/hetzner -o IdentitiesOnly=yes"
+          ./scripts/deploy/sync-to-server.sh "${user}@${HETZNER_HOST}"
+          ssh -i ~/.ssh/hetzner -o IdentitiesOnly=yes "${user}@${HETZNER_HOST}" \
+            'cd /opt/alicorn && docker compose up -d --build'
