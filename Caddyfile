@@ -1,8 +1,8 @@
-www.alicorn-agro.com {
-	redir https://alicorn-agro.com{uri} permanent
+www.alicorn-agro.com.ua {
+	redir https://alicorn-agro.com.ua{uri} permanent
 }
 
-alicorn-agro.com {
+alicorn-agro.com.ua {
 	encode zstd gzip
 
 	@glb path /3dmodel.glb

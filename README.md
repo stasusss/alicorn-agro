@@ -33,4 +33,4 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 Self-host with Docker Compose and Caddy; the database stays on Neon.
 
-See [docs/deploy.md](docs/deploy.md) for VPS bootstrap, DNS (`alicorn-agro.com`), env, cutover, and verification.
+See [docs/deploy.md](docs/deploy.md) for VPS bootstrap, DNS (`alicorn-agro.com.ua`), env, cutover, and verification.

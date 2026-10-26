@@ -66,7 +66,7 @@ set_or_default() {
   printf '%s=%s\n' "$key" "$value" >>"$tmp"
 }
 
-set_or_default AUTH_URL "https://alicorn-agro.com"
+set_or_default AUTH_URL "https://alicorn-agro.com.ua"
 if ! grep -q '^ALERT_EMAIL_FROM=' "$tmp" 2>/dev/null; then
   printf 'ALERT_EMAIL_FROM=alerts@alicorn-agro.com\n' >>"$tmp"
 fi

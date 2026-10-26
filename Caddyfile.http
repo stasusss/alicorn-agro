@@ -1,4 +1,4 @@
-# Temporary config until alicorn-agro.com DNS points here.
+# Temporary config until alicorn-agro.com.ua DNS points here.
 # Then: cp Caddyfile.production Caddyfile && docker compose restart caddy
 :80 {
 	encode zstd gzip
