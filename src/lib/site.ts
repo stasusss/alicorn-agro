@@ -1,5 +1,6 @@
 export const site = {
   name: "Alicorn Agro",
+  url: "https://alicorn-agro.com.ua",
   tagline: "Контролюйте кожен фактор, що впливає на врожай",
   email: "partnership@alicorn-agro.com",
   phone: "+380 934 5280 83",
