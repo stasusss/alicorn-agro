@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-alicorn}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     shm_size: 256mb
     command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=40"]
     # Localhost only, so a backup job can open an SSH tunnel. Not reachable from the internet.
