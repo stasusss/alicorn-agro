@@ -1,13 +1,13 @@
-# Деплой на Hetzner (Neon + alicorn-agro.com)
+# Деплой на Hetzner (Postgres + alicorn-agro.com)
 
-Стек: один VPS → Docker Compose (`app` + `caddy`) → Neon Postgres. Базу на Hetzner не переносимо.
+Стек: один VPS → Docker Compose (`postgres` + `app` + `caddy`). Бойова база — Postgres у цьому ж Compose, порт лише на `127.0.0.1` сервера. Neon лишається для dev-сайту на Vercel.
 
 ## Файли в репозиторії
 
 | Файл | Роль |
 | --- | --- |
 | `Dockerfile` | multi-stage build, Next.js `standalone`, Node 22 |
-| `docker-compose.yml` | `app` + `caddy`, healthcheck, log rotation |
+| `docker-compose.yml` | `postgres` + `app` + `caddy`, healthcheck, log rotation |
 | `Caddyfile` | TLS, `www` → apex, reverse proxy на `:3000` |
 | `scripts/deploy/bootstrap-server.sh` | первинне налаштування Ubuntu 24.04 |
 | `scripts/deploy/sync-to-server.sh` | копіювання compose-файлів на VPS |
@@ -20,7 +20,7 @@
    - TCP **22** — бажано лише з твого IP
    - TCP **80**, **443**
    - UDP **443** (HTTP/3)
-   - порт **3000** не відкривати
+   - порти **3000** і **5432** не відкривати. Postgres слухає лише `127.0.0.1` самого VPS
 3. Записати публічний IPv4 (і IPv6, якщо є).
 
 ## 2. DNS
@@ -67,13 +67,18 @@ npx vercel env pull .env.production.local --environment=production --yes
 Мінімум у `/opt/alicorn/.env` на сервері:
 
 ```env
-DATABASE_URL=postgresql://...@....neon.tech/...?sslmode=require
+POSTGRES_USER=alicorn
+POSTGRES_PASSWORD=...
+POSTGRES_DB=alicorn
+DATABASE_URL=postgresql://alicorn:...@postgres:5432/alicorn?sslmode=disable
 AUTH_SECRET=...
 AUTH_URL=https://alicorn-agro.com
 TELEGRAM_BOT_TOKEN=...
 RESEND_API_KEY=...
 ALERT_EMAIL_FROM=alerts@alicorn-agro.com
 ```
+
+`DATABASE_URL` всередині Compose вказує на сервіс `postgres`, не на Neon і не на `127.0.0.1`. Пароль у URL має збігатися з `POSTGRES_PASSWORD`. Після першого запуску пароль живе в томі `postgres_data`: зміна рядка в `.env` сама по собі пароль у базі не міняє.
 
 ```bash
 chmod 600 /opt/alicorn/.env
@@ -158,26 +163,22 @@ ssh deploy@SERVER_IP 'cd /opt/alicorn && docker compose up -d --build'
 
 `output: "standalone"` у `next.config.ts` вмикається лише поза Vercel. На Vercel він ламає збірку, на Hetzner без нього немає Docker-сервера. `AUTH_URL` на Vercel не задавати: інакше вхід у кабінет на `*.vercel.app` перекине на домен замовника.
 
-Бази розділені. У проєкті Neon `alicorn-agro` гілка `main` лишається бойовою: її connection string тільки в `/opt/alicorn/.env` на Hetzner. Гілка `vercel-dev` — копія на момент створення; її connection string стоїть у `DATABASE_URL` середовищ Production і Preview на Vercel. Запис із dev (кабінет, ingest, `db:push` проти URL Vercel) у бойову базу не потрапляє.
+Бази розділені. Бойові покази, користувачі й шлюзи лежать у Postgres на VPS. Гілка Neon `vercel-dev` лишається копією для Vercel: її connection string стоїть у `DATABASE_URL` середовищ Production і Preview. Запис із dev у бойову базу не потрапляє. Хост `neon.tech` у коді йде через драйвер Neon, будь-який інший Postgres — через звичайний `pg`.
 
-Не підставляй URL гілки `main` у Vercel і URL `vercel-dev` на Hetzner. Нову схему спочатку перевіряй на `vercel-dev`, і лише потім застосовуй до `main`.
+Не підставляй URL Vercel на Hetzner. Нову схему спочатку перевіряй на `vercel-dev`, і лише потім застосовуй до Postgres на сервері.
 
 `GET /api/health` відповідає 200, якщо процес живий, і базу не питає. Docker перевіряє його кожні 30 секунд; якби там був `select 1`, Neon не зміг би заснути. Коли шлюз мовчить, compute засинає за 5 хвилин. Поки датчики шлють пакет щохвилини, база все одно не спить.
 
-Сирі виміри тримаємо 14 днів. Workflow `readings-rollup` щодня о 07:30 UTC згортає старші 5-хвилинні вікна в одну точку тією самою формулою, що й кабінет. Секрет `DATABASE_URL` — connection string гілки Neon `main`, не `vercel-dev`. Довгу історію відновлення Neon не вмикати: дампи вже лежать у приватному репозиторії бекапів. На `vercel-dev` не вішати uptime-монітор, інакше dev-гілка теж не засинатиме.
+Сирі виміри тримаємо 14 днів. Workflow `readings-rollup` щодня о 07:30 UTC заходить на VPS по SSH і згортає старші 5-хвилинні вікна в одну точку тією самою формулою, що й кабінет. Дампи лежать у приватному репозиторії бекапів. На `vercel-dev` не вішати uptime-монітор, інакше dev-гілка Neon не засинатиме.
 
-Організація Neon на безкоштовному плані: 100 CU-годин на проєкт на місяць, 1 ГБ сховища, 5 ГБ трафіку. Коли датчики тримають 0.25 CU без сну, це близько 6 CU-годин на добу, і 100 годин вистачає приблизно на 16 діб. Коли ліміт закінчується, база зупиняється до наступного місяця, дані не видаляються. Сповіщення про гроші на безкоштовному плані Neon не надсилає.
-
-На Launch ($0.106 за CU-годину, сховище $0.35 за ГБ-місяць, без мінімуму) рахунок при 16 датчиках і пакеті щохвилини такий. Обчислення, якщо 0.25 CU не спить місяць: близько $19. Сховище після згортання: приблизно 1.6 ГБ сирих двох тижнів плюс близько 2 ГБ на рік п’ятихвилинних точок, тобто наприкінці першого року близько $1.30 на місяць і далі повільно росте. Разом близько $20–22 на місяць. Без згортання сирі точки за рік зайняли б понад 40 ГБ, і сховище саме вже коштувало б близько $15 на місяць і росло далі. Поки датчики мовчать, на Launch лишаються дрібні пробудження від відкритого кабінету, зазвичай менше $2.
-
-Щодня о 07:00 UTC workflow `neon-quota` дивиться споживання і пише в Telegram Стасу, якщо будь-яка межа вища за 70%. Ручний запуск надсилає звіт завжди. Секрети репозиторію: `NEON_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DATABASE_URL`.
+Бойовий Postgres сидить на диску VPS, окремої плати Neon за нього немає. Neon лишився для `vercel-dev` і на безкоштовному плані засинає, коли dev-сайт ніхто не відкриває: 100 CU-годин, 1 ГБ, 5 ГБ трафіку на проєкт на місяць. Щодня о 07:00 UTC workflow `neon-quota` дивиться це споживання і пише в Telegram Стасу, якщо будь-яка межа вища за 70%. Ручний запуск надсилає звіт завжди. Секрети: `NEON_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
 
 ## Troubleshooting
 
 | Симптом | Що перевірити |
 | --- | --- |
 | Caddy не видає сертифікат | DNS A/AAAA, порти 80/443 у firewall, логи `caddy` |
-| Кабінет відкривається, а дані не пишуться | `DATABASE_URL` у `/opt/alicorn/.env`, мережа VPS → Neon, логи `app` |
+| Кабінет відкривається, а дані не пишуться | контейнер `postgres` healthy, `DATABASE_URL` вказує на `postgres:5432`, логи `app` |
 | Логін редіректить на localhost | `AUTH_URL=https://alicorn-agro.com` |
 | Ingest 401 | ключ шлюзу / `gateway_id` у тілі запиту |
 | Deploy у GitHub червоний одразу | секрети `HETZNER_HOST` і `HETZNER_SSH_KEY`, користувач `deploy` у групі `docker` |

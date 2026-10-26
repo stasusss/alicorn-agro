@@ -83,7 +83,7 @@ for key in "${REQUIRED[@]}"; do
     echo "MISSING/PLACEHOLDER: $key — copy the real value from the Vercel dashboard" >&2
     missing=1
   elif [[ "$key" == "DATABASE_URL" && "$val" == pglite:* ]]; then
-    echo "ERROR: DATABASE_URL is pglite — use the Neon production URL" >&2
+    echo "ERROR: DATABASE_URL is pglite — use the Postgres URL" >&2
     missing=1
   fi
 done

@@ -10,13 +10,21 @@ jobs:
   rollup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Collapse readings older than 14 days
+      - name: Collapse readings older than 14 days on the VPS
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run db:rollup
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${HETZNER_HOST}" || -z "${HETZNER_SSH_KEY}" ]]; then
+            echo "Add repository secrets HETZNER_HOST and HETZNER_SSH_KEY."
+            exit 1
+          fi
+          user="${HETZNER_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$HETZNER_SSH_KEY" > ~/.ssh/hetzner
+          chmod 600 ~/.ssh/hetzner
+          ssh-keyscan -H "$HETZNER_HOST" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/hetzner -o IdentitiesOnly=yes "${user}@${HETZNER_HOST}" \
+            'cd /opt/alicorn && docker compose --profile jobs run --rm --no-deps rollup'
