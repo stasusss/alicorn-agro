@@ -2,10 +2,11 @@
 
 import { ConsultButton } from "@/components/consult-button";
 import { Reveal } from "@/components/reveal";
-import { ServiceGlyph } from "@/components/services/service-glyph";
 import { serviceCatalog } from "@/lib/site";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Cpu, Headset, LineChart, Sprout } from "lucide-react";
+
+const icons = [LineChart, Sprout, Cpu, Headset];
 import { useEffect, useState } from "react";
 
 export function ServicesView() {
@@ -51,6 +52,7 @@ export function ServicesView() {
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <div className="space-y-4">
           {serviceCatalog.map((service, index) => {
+            const Icon = icons[index];
             const isOpen = openId === service.id;
 
             return (
@@ -69,7 +71,9 @@ export function ServicesView() {
                     }
                     className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-mint/40 sm:gap-4 sm:p-8"
                   >
-                    <ServiceGlyph index={index} className="h-14 w-14 sm:h-16 sm:w-16" />
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-mint text-forest sm:h-12 sm:w-12">
+                      <Icon className="h-5 w-5" aria-hidden />
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="font-display text-sm text-wheat">0{index + 1}</span>
                       <span className="mt-1 block font-display text-lg leading-snug tracking-tight text-forest-dark sm:text-2xl">

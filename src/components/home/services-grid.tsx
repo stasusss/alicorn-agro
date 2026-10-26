@@ -1,10 +1,11 @@
 "use client";
 
-import { ServiceGlyph } from "@/components/services/service-glyph";
 import { services } from "@/lib/site";
 import { motion } from "framer-motion";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Cpu, Headset, LineChart, Sprout } from "lucide-react";
 import Link from "next/link";
+
+const icons = [LineChart, Sprout, Cpu, Headset];
 
 export function ServicesGrid() {
   return (
@@ -24,6 +25,7 @@ export function ServicesGrid() {
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2">
         {services.map((service, index) => {
+          const Icon = icons[index];
           return (
             <motion.article
               key={service.title}
@@ -37,7 +39,9 @@ export function ServicesGrid() {
                 className="group flex h-full flex-col rounded-3xl bg-white p-6 ring-1 ring-forest/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-28px_rgba(13,35,24,0.35)] hover:ring-forest/25 sm:p-8"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <ServiceGlyph index={index} className="h-16 w-16" />
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-mint text-forest">
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
                   <span className="font-display text-sm text-wheat">
                     0{index + 1}
                   </span>

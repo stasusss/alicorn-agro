@@ -15,13 +15,6 @@ export const navItems = [
   { href: "/login", label: "Кабінет" },
 ] as const;
 
-export const serviceArtwork = [
-  "/services/consulting.webp",
-  "/services/soil.webp",
-  "/services/technology.webp",
-  "/services/support.webp",
-] as const;
-
 export const services = [
   {
     title: "Консультації з агробізнесу",
