@@ -122,7 +122,7 @@ ssh deploy@SERVER_IP 'cd /opt/alicorn && docker compose logs -f caddy'
 
 Uptime-монітор (UptimeRobot / Better Stack) → `GET /api/health`.
 
-Vercel залиш на 24–48 год як fallback, потім вимкни.
+Vercel лишається dev-сервером, не fallback для домену. Див. розділ 8.
 
 ## 7. Автодеплой
 
@@ -148,6 +148,23 @@ rm hetzner_deploy hetzner_deploy.pub
 ./scripts/deploy/sync-to-server.sh deploy@SERVER_IP
 ssh deploy@SERVER_IP 'cd /opt/alicorn && docker compose up -d --build'
 ```
+
+## 8. Гілки і база
+
+| Куди пушиш | Що оновлюється |
+| --- | --- |
+| `dev` | Vercel, https://alicorn-agro-rho.vercel.app. У проєкті Vercel ця гілка стоїть як Production (Settings → Environments → Production → Branch Tracking). |
+| `main` | Hetzner, після зелених тестів. Домен `alicorn-agro.com` сюди і веде. |
+
+`output: "standalone"` у `next.config.ts` вмикається лише поза Vercel. На Vercel він ламає збірку, на Hetzner без нього немає Docker-сервера. `AUTH_URL` на Vercel не задавати: інакше вхід у кабінет на `*.vercel.app` перекине на домен замовника.
+
+Бази розділені. У проєкті Neon `alicorn-agro` гілка `main` лишається бойовою: її connection string тільки в `/opt/alicorn/.env` на Hetzner. Гілка `vercel-dev` — копія на момент створення; її connection string стоїть у `DATABASE_URL` середовищ Production і Preview на Vercel. Запис із dev (кабінет, ingest, `db:push` проти URL Vercel) у бойову базу не потрапляє.
+
+Не підставляй URL гілки `main` у Vercel і URL `vercel-dev` на Hetzner. Нову схему спочатку перевіряй на `vercel-dev`, і лише потім застосовуй до `main`.
+
+Організація Neon на безкоштовному плані: 100 CU-годин на проєкт на місяць, 1 ГБ сховища, 5 ГБ трафіку. Обчислення засинає після 5 хвилин без запитів, але healthcheck застосунку питає базу кожні 30 секунд, тож бойовий compute майже не спить. При 0.25 CU це близько 6 CU-годин на добу, і 100 годин вистачає приблизно на 16 діб безперервної роботи. Коли ліміт закінчується, база зупиняється до наступного місяця, дані не видаляються. Сповіщення про гроші на безкоштовному плані Neon не надсилає.
+
+Щодня о 07:00 UTC workflow `neon-quota` дивиться споживання і пише в Telegram Стасу, якщо будь-яка межа вища за 70%. Ручний запуск надсилає звіт завжди. Секрети репозиторію: `NEON_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
 
 ## Troubleshooting
 
