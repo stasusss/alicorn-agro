@@ -2,7 +2,7 @@
 # Smoke checks against the production origin.
 set -euo pipefail
 
-BASE_URL="${1:-https://alicorn-agro.com}"
+BASE_URL="${1:-https://alicorn-agro.com.ua}"
 BASE_URL="${BASE_URL%/}"
 
 fail=0
@@ -39,7 +39,9 @@ if command -v jq >/dev/null 2>&1; then
   fi
 fi
 
-www_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -I "https://www.alicorn-agro.com/" || true)"
+www_host="${BASE_URL#https://}"
+www_host="${www_host#http://}"
+www_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -I "https://www.${www_host}/" || true)"
 if [[ "$www_code" == "301" || "$www_code" == "308" || "$www_code" == "200" ]]; then
   echo "OK  www responds ($www_code)"
 else

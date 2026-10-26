@@ -1,4 +1,4 @@
-# Деплой на Hetzner (Postgres + alicorn-agro.com)
+# Деплой на Hetzner (Postgres + alicorn-agro.com.ua)
 
 Стек: один VPS → Docker Compose (`postgres` + `app` + `caddy`). Бойова база — Postgres у цьому ж Compose, порт лише на `127.0.0.1` сервера. Neon лишається для dev-сайту на Vercel.
 
@@ -25,13 +25,13 @@
 
 ## 2. DNS
 
-У реєстратора домену `alicorn-agro.com`:
+У реєстратора домену `alicorn-agro.com.ua`:
 
-- `A` `alicorn-agro.com` → IP VPS
-- `A` `www.alicorn-agro.com` → IP VPS
+- `A` `alicorn-agro.com.ua` → IP VPS
+- `A` `www.alicorn-agro.com.ua` → IP VPS
 - за наявності IPv6 — відповідні `AAAA`
 
-Перед cutover бажано TTL ≤ 300. Перевірка: `dig +short alicorn-agro.com A`.
+Перед cutover бажано TTL ≤ 300. Перевірка: `dig +short alicorn-agro.com.ua A`.
 
 Поки DNS ще немає: на сервері лежить тимчасовий `Caddyfile` з `:80` (файл у репо — `Caddyfile.http`). Після DNS:
 
@@ -62,7 +62,7 @@ npx vercel env pull .env.production.local --environment=production --yes
 ./scripts/deploy/prepare-env.sh
 ```
 
-Скрипт відхилить плейсхолдери й збере `.env.production.hetzner` з `AUTH_URL=https://alicorn-agro.com`.
+Скрипт відхилить плейсхолдери й збере `.env.production.hetzner` з `AUTH_URL=https://alicorn-agro.com.ua`.
 
 Мінімум у `/opt/alicorn/.env` на сервері:
 
@@ -72,7 +72,7 @@ POSTGRES_PASSWORD=...
 POSTGRES_DB=alicorn
 DATABASE_URL=postgresql://alicorn:...@postgres:5432/alicorn?sslmode=disable
 AUTH_SECRET=...
-AUTH_URL=https://alicorn-agro.com
+AUTH_URL=https://alicorn-agro.com.ua
 TELEGRAM_BOT_TOKEN=...
 RESEND_API_KEY=...
 ALERT_EMAIL_FROM=alerts@alicorn-agro.com
@@ -84,7 +84,7 @@ ALERT_EMAIL_FROM=alerts@alicorn-agro.com
 chmod 600 /opt/alicorn/.env
 ```
 
-`AUTH_URL` має бути саме `https://alicorn-agro.com` (без слеша в кінці). Домен відправника має бути верифікований у Resend.
+`AUTH_URL` має бути саме `https://alicorn-agro.com.ua` (без слеша в кінці). Домен відправника має бути верифікований у Resend.
 
 Перед cutover зніми свіжий дамп Neon (локально, з prod `DATABASE_URL`):
 
@@ -113,17 +113,17 @@ ssh deploy@SERVER_IP 'cd /opt/alicorn && docker compose logs -f caddy'
 ## 6. Перевірки (cutover)
 
 ```bash
-./scripts/deploy/verify-cutover.sh https://alicorn-agro.com
+./scripts/deploy/verify-cutover.sh https://alicorn-agro.com.ua
 ```
 
 Вручну:
 
 1. Логін у `/cabinet`, charts / heatmap / export / report
-2. Ingest: `BASE_URL=https://alicorn-agro.com GATEWAY_ID=… GATEWAY_API_KEY=… npm run test:ingest`
+2. Ingest: `BASE_URL=https://alicorn-agro.com.ua GATEWAY_ID=… GATEWAY_API_KEY=… npm run test:ingest`
 3. Тестовий alert (Telegram + email)
 4. Завантаження `/3dmodel.glb`
 
-Потім перемкнути шлюз(і) на `https://alicorn-agro.com/api/ingest`.
+Потім перемкнути шлюз(і) на `https://alicorn-agro.com.ua/api/ingest`.
 
 Uptime-монітор (UptimeRobot / Better Stack) → `GET /api/health`.
 
@@ -159,7 +159,7 @@ ssh deploy@SERVER_IP 'cd /opt/alicorn && docker compose up -d --build'
 | Куди пушиш | Що оновлюється |
 | --- | --- |
 | `dev` | Vercel, https://alicorn-agro-rho.vercel.app. У проєкті Vercel ця гілка стоїть як Production (Settings → Environments → Production → Branch Tracking). |
-| `main` | Hetzner, після зелених тестів. Домен `alicorn-agro.com` сюди і веде. |
+| `main` | Hetzner, після зелених тестів. Домен `alicorn-agro.com.ua` сюди і веде. |
 
 `output: "standalone"` у `next.config.ts` вмикається лише поза Vercel. На Vercel він ламає збірку, на Hetzner без нього немає Docker-сервера. `AUTH_URL` на Vercel не задавати: інакше вхід у кабінет на `*.vercel.app` перекине на домен замовника.
 
@@ -179,6 +179,6 @@ ssh deploy@SERVER_IP 'cd /opt/alicorn && docker compose up -d --build'
 | --- | --- |
 | Caddy не видає сертифікат | DNS A/AAAA, порти 80/443 у firewall, логи `caddy` |
 | Кабінет відкривається, а дані не пишуться | контейнер `postgres` healthy, `DATABASE_URL` вказує на `postgres:5432`, логи `app` |
-| Логін редіректить на localhost | `AUTH_URL=https://alicorn-agro.com` |
+| Логін редіректить на IP або localhost | `AUTH_URL=https://alicorn-agro.com.ua` |
 | Ingest 401 | ключ шлюзу / `gateway_id` у тілі запиту |
 | Deploy у GitHub червоний одразу | секрети `HETZNER_HOST` і `HETZNER_SSH_KEY`, користувач `deploy` у групі `docker` |
