@@ -1,0 +1,23 @@
+name: neon-quota
+
+on:
+  schedule:
+    # 07:00 UTC, 09:00 Europe/Kyiv in winter and 10:00 in summer
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check Neon free-plan usage
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NEON_NOTIFY: ${{ github.event_name == 'workflow_dispatch' && 'always' || 'threshold' }}
+        run: node scripts/monitor-neon.mjs
