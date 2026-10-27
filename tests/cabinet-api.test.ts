@@ -63,7 +63,7 @@ describe("cabinet export and alert deletion", () => {
     });
     await other.db.update(sensors).set({ externalId: "other-sensor" }).where(eq(sensors.id, other.sensor.id));
 
-    authMock.mockResolvedValue({ user: { organizationId: own.org.id } });
+    authMock.mockResolvedValue({ user: { organizationId: own.org.id, role: "client" } });
     const response = await getExport(
       request("/api/cabinet/export?from=2026-10-19T12:00:00.000Z&to=2026-10-19T13:00:00.000Z"),
     );
@@ -91,7 +91,7 @@ describe("cabinet export and alert deletion", () => {
         threshold: 30,
       })
       .returning();
-    authMock.mockResolvedValue({ user: { organizationId: org.id } });
+    authMock.mockResolvedValue({ user: { organizationId: org.id, role: "client" } });
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const response = await DELETE(request(`/api/cabinet/alerts/${rule.id}`, { method: "DELETE" }), {
       params: Promise.resolve({ id: rule.id }),

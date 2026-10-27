@@ -2,6 +2,7 @@ import { getDb } from "@/db";
 import { alertEvents, alertRules, sensors } from "@/db/schema";
 import { getSmoothedLatestReading } from "@/lib/cabinet/queries";
 import { logger } from "@/lib/log";
+import { site } from "@/lib/site";
 import { and, eq, gte } from "drizzle-orm";
 import { Resend } from "resend";
 import type { MetricKey } from "./climate";
@@ -81,6 +82,21 @@ async function sendEmail(to: string, subject: string, text: string) {
     return false;
   }
   return true;
+}
+
+export async function deliverOperatorNotice(input: {
+  subject: string;
+  text: string;
+  telegramText: string;
+}) {
+  const chatId = (process.env.CHAT_TELEGRAM_CHAT_ID || process.env.TELEGRAM_CHAT_ID)?.trim();
+  const telegram = chatId ? await sendTelegram(chatId, input.telegramText) : false;
+  if (!chatId) {
+    logger.warn({ msg: "chat_telegram_skipped", reason: "CHAT_TELEGRAM_CHAT_ID missing" });
+  }
+  const to = process.env.OPERATOR_EMAIL?.trim() || site.notifyEmail;
+  const email = await sendEmail(to, input.subject, input.text);
+  return { telegram, email };
 }
 
 export async function evaluateAlertsForOrganization(organizationId: string) {

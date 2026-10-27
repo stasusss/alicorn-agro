@@ -20,6 +20,9 @@ export const alertMetricEnum = pgEnum("alert_metric", [
 ]);
 export const alertOperatorEnum = pgEnum("alert_operator", ["gt", "lt", "gte", "lte"]);
 export const alertTargetEnum = pgEnum("alert_target", ["sensor", "all_avg"]);
+export const userRoleEnum = pgEnum("user_role", ["client", "admin", "staff"]);
+export const chatStatusEnum = pgEnum("chat_status", ["ai", "human", "closed"]);
+export const chatRoleEnum = pgEnum("chat_role", ["visitor", "assistant", "staff"]);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -40,6 +43,7 @@ export const users = pgTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
+    role: userRoleEnum("role").notNull().default("client"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [uniqueIndex("users_email_idx").on(table.email)],
@@ -172,6 +176,44 @@ export const alertEvents = pgTable(
   ],
 );
 
+export const chatConversations = pgTable(
+  "chat_conversations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    visitorTokenHash: text("visitor_token_hash").notNull(),
+    status: chatStatusEnum("status").notNull().default("ai"),
+    handoffRequested: boolean("handoff_requested").notNull().default(false),
+    visitorName: text("visitor_name"),
+    visitorPhone: text("visitor_phone"),
+    pageUrl: text("page_url"),
+    assignedUserId: uuid("assigned_user_id").references(() => users.id, { onDelete: "set null" }),
+    ipHash: text("ip_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("chat_conversations_token_idx").on(table.visitorTokenHash),
+    index("chat_conversations_ip_created_idx").on(table.ipHash, table.createdAt),
+    index("chat_conversations_last_message_idx").on(table.lastMessageAt),
+    index("chat_conversations_assignee_idx").on(table.assignedUserId),
+  ],
+);
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => chatConversations.id, { onDelete: "cascade" }),
+    role: chatRoleEnum("role").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("chat_messages_conversation_idx").on(table.conversationId, table.createdAt)],
+);
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Gateway = typeof gateways.$inferSelect;
@@ -179,3 +221,24 @@ export type Sensor = typeof sensors.$inferSelect;
 export type Reading = typeof readings.$inferSelect;
 export type AlertRule = typeof alertRules.$inferSelect;
 export type AlertEvent = typeof alertEvents.$inferSelect;
+export const leads = pgTable("leads", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email").notNull(),
+  time: text("time").notNull(),
+  notes: text("notes").notNull().default(""),
+  ipHash: text("ip_hash").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const knowledgeDocuments = pgTable("knowledge_documents", {
+  id: text("id").primaryKey(),
+  body: text("body").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type Lead = typeof leads.$inferSelect;

@@ -15,6 +15,8 @@ export const metadata: Metadata = {
 export default async function AlertsPage() {
   const session = await auth();
   if (!session?.user?.organizationId) redirect("/login");
+  if (session.user.role === "staff") redirect("/cabinet/chats");
+  if (session.user.role === "admin") redirect("/cabinet");
 
   const orgId = session.user.organizationId;
   const db = await getDb();

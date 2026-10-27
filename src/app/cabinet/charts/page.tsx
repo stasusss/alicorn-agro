@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 export default async function ChartsPage() {
   const session = await auth();
   if (!session?.user?.organizationId) redirect("/login");
+  if (session.user.role === "staff") redirect("/cabinet/chats");
+  if (session.user.role === "admin") redirect("/cabinet");
 
   const sensors = await getOrgSensors(session.user.organizationId);
   const sensorOptions = sensors.map((s) => ({ id: s.id, name: s.name }));

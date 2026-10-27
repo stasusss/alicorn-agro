@@ -3,6 +3,7 @@ export const site = {
   url: "https://alicorn-agro.com.ua",
   tagline: "Контролюйте кожен фактор, що впливає на врожай",
   email: "partnership@alicorn-agro.com",
+  notifyEmail: "alicorn-agro@gmail.com",
   phone: "+380 934 5280 83",
   phoneHref: "tel:+380934528083",
   telegramHref: "https://t.me/+380934528083",

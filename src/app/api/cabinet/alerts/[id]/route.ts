@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { alertRules } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { canReadMeasurements } from "@/lib/cabinet/measurement-access";
 import { logger, requestIdFrom } from "@/lib/log";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -15,6 +16,9 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!session?.user?.organizationId) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "alerts" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -49,6 +53,9 @@ export async function DELETE(request: Request, { params }: Params) {
     if (!session?.user?.organizationId) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "alerts" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;

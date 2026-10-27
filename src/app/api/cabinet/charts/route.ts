@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { canReadMeasurements } from "@/lib/cabinet/measurement-access";
 import { getChartSeries, getOrgSensors } from "@/lib/cabinet/queries";
 import type { MetricKey } from "@/lib/climate";
 import { logger, requestIdFrom } from "@/lib/log";
@@ -19,6 +20,9 @@ export async function GET(request: Request) {
     if (!session?.user?.organizationId) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "charts" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const url = new URL(request.url);

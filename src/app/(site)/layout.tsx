@@ -1,3 +1,4 @@
+import { ChatWidget } from "@/components/chat-widget";
 import { ConsultationModal } from "@/components/consultation-modal";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
@@ -10,6 +11,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <main className="flex-1">{children}</main>
       <Footer />
       <ConsultationModal />
+      <ChatWidget />
     </ModalProvider>
   );
 }
