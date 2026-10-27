@@ -4,25 +4,22 @@ import {
   gateways,
   leads,
   organizations,
-  readings,
   sensors,
 } from "@/db/schema";
-import { desc, gte, sql } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 
 export type ClientStat = {
   id: string;
   name: string;
   sensors: number;
-  lastReading: string | null;
   gatewaySeen: string | null;
 };
 
 export async function getAdminOverview() {
   const db = await getDb();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const onlineSince = new Date(Date.now() - 15 * 60 * 1000);
 
-  const [orgs, sensorRows, gatewayRows, readingCount, chatRows, leadRows, recentChats, recentLeads] =
+  const [orgs, sensorRows, gatewayRows, chatRows, leadRows, recentChats, recentLeads] =
     await Promise.all([
       db.select().from(organizations).orderBy(organizations.name),
       db
@@ -39,33 +36,19 @@ export async function getAdminOverview() {
         })
         .from(gateways)
         .groupBy(gateways.organizationId),
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(readings)
-        .where(gte(readings.ts, since)),
       db.select().from(chatConversations),
       db.select().from(leads),
       db.select().from(chatConversations).orderBy(desc(chatConversations.lastMessageAt)).limit(8),
       db.select().from(leads).orderBy(desc(leads.createdAt)).limit(5),
     ]);
 
-  const lastReadings = await db
-    .select({
-      organizationId: readings.organizationId,
-      lastReading: sql<Date | null>`max(${readings.ts})`,
-    })
-    .from(readings)
-    .groupBy(readings.organizationId);
-
   const sensorsByOrg = new Map(sensorRows.map((row) => [row.organizationId, row.count]));
   const seenByOrg = new Map(gatewayRows.map((row) => [row.organizationId, row.lastSeen]));
-  const readingByOrg = new Map(lastReadings.map((row) => [row.organizationId, row.lastReading]));
 
   const clients: ClientStat[] = orgs.map((org) => ({
     id: org.id,
     name: org.name,
     sensors: Number(sensorsByOrg.get(org.id) ?? 0),
-    lastReading: toIso(readingByOrg.get(org.id)),
     gatewaySeen: toIso(seenByOrg.get(org.id)),
   }));
 
@@ -78,7 +61,6 @@ export async function getAdminOverview() {
     clients: clients.length,
     sensors: sensorRows.reduce((sum, row) => sum + Number(row.count), 0),
     gatewaysOnline,
-    readings24h: Number(readingCount[0]?.count ?? 0),
     chats: chatRows.length,
     chatsWaiting: chatRows.filter((row) => row.status === "human").length,
     leads: leadRows.length,

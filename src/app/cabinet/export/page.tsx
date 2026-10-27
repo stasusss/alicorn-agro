@@ -1,12 +1,17 @@
 import { ExportForm } from "@/components/cabinet/export-form";
 import { ReportForm } from "@/components/cabinet/report-form";
+import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Експорт і звіти",
 };
 
-export default function ExportPage() {
+export default async function ExportPage() {
+  const session = await auth();
+  if (session?.user?.role === "admin") redirect("/cabinet");
+
   return (
     <div className="space-y-12">
       <header className="max-w-2xl">

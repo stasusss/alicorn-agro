@@ -24,7 +24,6 @@ export async function AdminOverview() {
     ["Клієнти", String(data.clients)],
     ["Датчики", String(data.sensors)],
     ["Шлюзи онлайн", String(data.gatewaysOnline)],
-    ["Виміри за 24 год", String(data.readings24h)],
     ["Чати", String(data.chats)],
     ["Заявки з форми", String(data.leads)],
   ];
@@ -57,12 +56,11 @@ export async function AdminOverview() {
       <section className="space-y-3">
         <h2 className="cab-section-title">Господарства</h2>
         <div className="cab-panel overflow-x-auto">
-          <table className="w-full min-w-[36rem] text-left text-sm">
+          <table className="w-full text-left text-sm">
             <thead className="text-[12px] uppercase tracking-wide text-[#86868b]">
               <tr>
                 <th className="px-4 py-3 font-medium">Клієнт</th>
                 <th className="px-4 py-3 font-medium">Датчики</th>
-                <th className="px-4 py-3 font-medium">Останній вимір</th>
                 <th className="px-4 py-3 font-medium">Шлюз</th>
               </tr>
             </thead>
@@ -71,7 +69,6 @@ export async function AdminOverview() {
                 <tr key={client.id} className="border-t border-black/[0.06]">
                   <td className="px-4 py-3 font-medium">{client.name}</td>
                   <td className="px-4 py-3">{client.sensors}</td>
-                  <td className="px-4 py-3">{when(client.lastReading)}</td>
                   <td className="px-4 py-3">{when(client.gatewaySeen)}</td>
                 </tr>
               ))}
