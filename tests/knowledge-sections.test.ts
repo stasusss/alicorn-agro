@@ -19,9 +19,18 @@ describe("knowledge sections", () => {
         "Повітря і CO2",
         "Світло, екрани і RNP",
         "Чого в базі немає",
+        "Захист рослин у закритому ґрунті",
+        "Біозахист",
+        "Ґрунти України",
+        "Середня врожайність культур в Україні",
+        "Середня врожайність культур за регіонами України",
       ]),
     );
-    expect(sections.length).toBeGreaterThan(20);
+    expect(sections.length).toBeGreaterThan(50);
+    expect(body).toContain("https://www.koppert.com/");
+    expect(body).toContain("Держстат");
+    expect(body).toContain("норми препаратів");
+    expect(body).not.toContain("л/га");
     expect(joinKnowledgeSections(sections)).toContain("# Автори");
     expect(body).toContain("ir. P.A.M. Geelen");
     expect(body).toContain("ir. J.O. Voogt");
