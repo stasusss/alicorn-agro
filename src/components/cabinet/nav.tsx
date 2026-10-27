@@ -1,19 +1,25 @@
 "use client";
 
 import { logoutAction } from "@/lib/actions/auth";
-import { Bell, ChartLine, FileText, LayoutGrid } from "lucide-react";
+import { Bell, ChartLine, FileText, LayoutGrid, MessagesSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const links = [
+const clientLinks = [
   { href: "/cabinet", label: "Огляд", icon: LayoutGrid },
   { href: "/cabinet/charts", label: "Графіки", icon: ChartLine },
   { href: "/cabinet/alerts", label: "Сповіщення", icon: Bell },
   { href: "/cabinet/export", label: "Звіти", icon: FileText },
 ];
 
-export function CabinetNav({ userEmail }: { userEmail: string }) {
+export function CabinetNav({ userEmail, admin = false }: { userEmail: string; admin?: boolean }) {
   const pathname = usePathname();
+  const links = admin
+    ? [
+        { href: "/cabinet", label: "Огляд", icon: LayoutGrid },
+        { href: "/cabinet/chats", label: "Чати", icon: MessagesSquare },
+      ]
+    : clientLinks;
 
   return (
     <>
@@ -67,7 +73,7 @@ export function CabinetNav({ userEmail }: { userEmail: string }) {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-black/[0.06] bg-[#f5f5f7]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
         aria-label="Розділи кабінету"
       >
-        <div className="grid grid-cols-4">
+        <div className={`grid ${links.length === 2 ? "grid-cols-2" : "grid-cols-4"}`}>
           {links.map((link) => {
             const active = isActive(pathname, link.href);
             const Icon = link.icon;

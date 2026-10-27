@@ -1,3 +1,4 @@
+import { AdminOverview } from "@/components/cabinet/admin-overview";
 import { Heatmap } from "@/components/cabinet/heatmap";
 import { QuickReportButton } from "@/components/cabinet/quick-report-button";
 import { auth } from "@/lib/auth";
@@ -42,6 +43,7 @@ function shortWhen(d: Date) {
 export default async function CabinetOverviewPage() {
   const session = await auth();
   if (!session?.user?.organizationId) redirect("/login");
+  if (session.user.role === "admin") return <AdminOverview />;
 
   const orgId = session.user.organizationId;
   const now = new Date();

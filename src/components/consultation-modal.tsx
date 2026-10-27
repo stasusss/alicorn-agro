@@ -58,12 +58,13 @@ export function ConsultationModal() {
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const [submitted, setSubmitted] = useState(false);
   const [values, setValues] = useState<FormValues>(emptyForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   const handleClose = useCallback(() => {
     setSubmitted(false);
+    setError(null);
     setErrors({});
     setValues(emptyForm);
     closeModal();
@@ -93,14 +94,32 @@ export function ConsultationModal() {
     setErrors((current) => ({ ...current, [key]: undefined }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors = validate(values);
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
     }
-    setSubmitted(true);
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Не вдалося надіслати заявку.");
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setError("Не вдалося надіслати заявку.");
+    } finally {
+      setPending(false);
+    }
   }
 
   const fieldClass =
@@ -298,10 +317,12 @@ export function ConsultationModal() {
 
                 <button
                   type="submit"
-                  className="mt-2 w-full rounded-full bg-forest py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_-12px_rgba(31,92,56,0.55)] transition-colors hover:bg-forest-mid"
+                  disabled={pending}
+                  className="mt-2 w-full rounded-full bg-forest py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_-12px_rgba(31,92,56,0.55)] transition-colors hover:bg-forest-mid disabled:opacity-60"
                 >
-                  Надіслати заявку
+                  {pending ? "Надсилаємо…" : "Надіслати заявку"}
                 </button>
+                {error ? <p className="text-center text-xs text-red-600">{error}</p> : null}
               </form>
             )}
           </motion.div>

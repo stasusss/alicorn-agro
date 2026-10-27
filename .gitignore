@@ -34,6 +34,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# one-off Hetzner deploy key (private + public)
+/hetzner_deploy
+/hetzner_deploy.pub
+
 # local PGlite data
 .data/
 

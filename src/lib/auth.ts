@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { authConfig } from "@/lib/auth.config";
+import { ensureAdminUser } from "@/lib/ensure-admin";
 import { verifyPassword } from "@/lib/password";
 import { eq } from "drizzle-orm";
 import NextAuth from "next-auth";
@@ -27,6 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const db = await getDb();
+        await ensureAdminUser();
         const [user] = await db
           .select()
           .from(users)
@@ -43,6 +45,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           organizationId: user.organizationId,
+          role: user.role,
         };
       },
     }),
