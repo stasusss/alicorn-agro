@@ -10,8 +10,8 @@ export function Footer() {
         <div className="lg:col-span-5">
           <Logo variant="lockup" tone="light" />
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-cream/70">
-            Alicorn Agro — ваш надійний партнер у світі розумного землеробства.
-            Інженерна точність зустрічається з фізіологією рослин.
+            Alicorn Agro — ваш надійний партнер у світі розумного землеробства, де
+            інженерна точність зустрічається з фізіологією рослин.
           </p>
         </div>
 
