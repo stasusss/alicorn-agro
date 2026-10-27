@@ -11,11 +11,12 @@ export const metadata: Metadata = {
 
 export default async function CabinetChatsPage() {
   const session = await auth();
-  if (session?.user?.role !== "admin") redirect("/cabinet");
+  const role = session?.user?.role;
+  if (role !== "admin" && role !== "staff") redirect("/cabinet");
 
   return (
     <Suspense fallback={<p className="text-sm text-[#86868b]">Завантаження…</p>}>
-      <ChatInbox />
+      <ChatInbox role={role} />
     </Suspense>
   );
 }

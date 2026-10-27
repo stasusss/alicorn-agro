@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { canReadMeasurements } from "@/lib/cabinet/measurement-access";
 import { buildAnalyticsReport, renderReportHtml } from "@/lib/cabinet/report";
 import { logger, requestIdFrom } from "@/lib/log";
 import { NextResponse } from "next/server";
@@ -17,6 +18,9 @@ export async function GET(request: Request) {
     if (!session?.user?.organizationId) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "report" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const url = new URL(request.url);

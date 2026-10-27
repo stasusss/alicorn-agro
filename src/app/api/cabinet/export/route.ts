@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { readings, sensors } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { canReadMeasurements } from "@/lib/cabinet/measurement-access";
 import { bucketStartMs, DISPLAY_WINDOW_MS, smoothReadingWindows } from "@/lib/cabinet/smoothing";
 import { logger, requestIdFrom } from "@/lib/log";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
@@ -27,6 +28,9 @@ export async function GET(request: Request) {
     if (!session?.user?.organizationId) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "export" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const url = new URL(request.url);

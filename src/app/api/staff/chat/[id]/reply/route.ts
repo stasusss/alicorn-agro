@@ -1,4 +1,4 @@
-import { requireOperator } from "@/lib/chat/operator";
+import { replyScope, requireOperator } from "@/lib/chat/operator";
 import { replyAsOperator } from "@/lib/chat/service";
 import { logger, requestIdFrom } from "@/lib/log";
 import { NextResponse } from "next/server";
@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: Params) {
     if (!body.success) {
       return NextResponse.json({ error: "Напишіть відповідь." }, { status: 400 });
     }
-    const result = await replyAsOperator(id, body.data.text);
+    const result = await replyAsOperator(id, body.data.text, replyScope(access));
     if ("error" in result) {
       const status = result.error === "missing" ? 404 : 400;
       const error = result.error === "missing" ? "Not found" : "Напишіть відповідь до 2000 символів.";

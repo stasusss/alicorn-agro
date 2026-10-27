@@ -1,4 +1,4 @@
-import { requireOperator } from "@/lib/chat/operator";
+import { readScope, requireOperator } from "@/lib/chat/operator";
 import { readStaffConversation } from "@/lib/chat/service";
 import { logger, requestIdFrom } from "@/lib/log";
 import { NextResponse } from "next/server";
@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: Params) {
     if (!z.string().uuid().safeParse(id).success) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    const conversation = await readStaffConversation(id);
+    const conversation = await readStaffConversation(id, readScope(access));
     if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ conversation });
   } catch (err) {

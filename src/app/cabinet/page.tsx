@@ -44,6 +44,7 @@ export default async function CabinetOverviewPage() {
   const session = await auth();
   if (!session?.user?.organizationId) redirect("/login");
   if (session.user.role === "admin") return <AdminOverview />;
+  if (session.user.role === "staff") redirect("/cabinet/chats");
 
   const orgId = session.user.organizationId;
   const now = new Date();

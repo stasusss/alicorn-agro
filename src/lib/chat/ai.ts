@@ -1,3 +1,4 @@
+import { knowledgeForPrompt } from "@/lib/chat/knowledge-store";
 import { logger } from "@/lib/log";
 import { buildChatSystemPrompt } from "@/lib/chat/prompt";
 
@@ -15,7 +16,7 @@ const handoffTool = {
   function: {
     name: "handoff",
     description:
-      "Передати діалог живому спеціалісту, коли відвідувач просить людину або у фактах немає відповіді.",
+      "Передати діалог живому спеціалісту, коли відвідувач просить людину або у базі знань немає факту, уставки чи рецепта.",
     parameters: {
       type: "object",
       properties: {
@@ -49,8 +50,8 @@ export async function completeChat(turns: ChatTurn[]) {
     },
     body: JSON.stringify({
       model,
-      temperature: 0.3,
-      messages: [{ role: "system", content: buildChatSystemPrompt() }, ...history],
+      temperature: 0.2,
+      messages: [{ role: "system", content: buildChatSystemPrompt(await knowledgeForPrompt()) }, ...history],
       tools: [handoffTool],
     }),
   });

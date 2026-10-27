@@ -1,5 +1,5 @@
 import { getDb } from "@/db";
-import { chatConversations, chatMessages, type ChatConversation } from "@/db/schema";
+import { chatConversations, chatMessages, users, type ChatConversation } from "@/db/schema";
 import { aiEnabled, completeChat } from "@/lib/chat/ai";
 import {
   CHAT_LIMITS,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/chat/intent";
 import { notifyOperators } from "@/lib/chat/notify";
 import { logger } from "@/lib/log";
-import { and, asc, desc, eq, gte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, or } from "drizzle-orm";
 
 export type PublicMessage = {
   id: string;
@@ -42,7 +42,14 @@ export type StaffConversation = {
   pageUrl: string | null;
   lastMessageAt: string;
   preview: string;
+  assignedUserId: string | null;
+  assigneeName: string | null;
 };
+
+export type ConversationScope =
+  | { kind: "all" }
+  | { kind: "assigned"; userId: string }
+  | { kind: "queue"; userId: string };
 
 type Ok = { ok: true; conversation: PublicConversation; token: string | null };
 type Fail = { ok: false; status: 400 | 429; error: string };
@@ -285,15 +292,17 @@ export async function postVisitorMessage(input: {
   return { ok: true, conversation: await snapshot(conversation.id), token };
 }
 
-export async function listStaffConversations(): Promise<StaffConversation[]> {
+export async function listStaffConversations(scope: ConversationScope): Promise<StaffConversation[]> {
   const db = await getDb();
-  const conversations = await db
-    .select()
+  const rows = await db
+    .select({ conversation: chatConversations, assigneeName: users.name })
     .from(chatConversations)
+    .leftJoin(users, eq(chatConversations.assignedUserId, users.id))
+    .where(scopeWhere(scope))
     .orderBy(desc(chatConversations.lastMessageAt));
 
   const listed: StaffConversation[] = [];
-  for (const conversation of conversations) {
+  for (const { conversation, assigneeName } of rows) {
     const [latest] = await db
       .select({ body: chatMessages.body })
       .from(chatMessages)
@@ -308,12 +317,14 @@ export async function listStaffConversations(): Promise<StaffConversation[]> {
       pageUrl: conversation.pageUrl,
       lastMessageAt: conversation.lastMessageAt.toISOString(),
       preview: latest?.body.slice(0, 140) ?? "",
+      assignedUserId: conversation.assignedUserId,
+      assigneeName,
     });
   }
   return listed;
 }
 
-export async function readStaffConversation(id: string) {
+async function conversationFor(id: string, scope: ConversationScope) {
   const db = await getDb();
   const [conversation] = await db
     .select()
@@ -321,24 +332,69 @@ export async function readStaffConversation(id: string) {
     .where(eq(chatConversations.id, id))
     .limit(1);
   if (!conversation) return null;
-  return toPublic(conversation, await loadMessages(id));
+  if (scope.kind === "assigned" && conversation.assignedUserId !== scope.userId) return null;
+  if (scope.kind === "queue") {
+    const own = conversation.assignedUserId === scope.userId;
+    const open = conversation.assignedUserId === null;
+    if (!own && !open) return null;
+  }
+  return conversation;
 }
 
-export async function replyAsOperator(id: string, text: string) {
+function scopeWhere(scope: ConversationScope) {
+  if (scope.kind === "all") return undefined;
+  if (scope.kind === "assigned") return eq(chatConversations.assignedUserId, scope.userId);
+  return or(eq(chatConversations.assignedUserId, scope.userId), isNull(chatConversations.assignedUserId));
+}
+
+export async function readStaffConversation(id: string, scope: ConversationScope) {
+  const conversation = await conversationFor(id, scope);
+  if (!conversation) return null;
+  return {
+    ...toPublic(conversation, await loadMessages(id)),
+    assignedUserId: conversation.assignedUserId,
+  };
+}
+
+export async function replyAsOperator(id: string, text: string, scope: ConversationScope) {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > CHAT_LIMITS.messageMax) return { error: "empty" as const };
-  const db = await getDb();
-  const [conversation] = await db
-    .select()
-    .from(chatConversations)
-    .where(eq(chatConversations.id, id))
-    .limit(1);
+  const conversation = await conversationFor(id, scope);
   if (!conversation) return { error: "missing" as const };
 
   await addMessage(id, "staff", trimmed);
+  const db = await getDb();
   await db
     .update(chatConversations)
     .set({ status: "human", handoffRequested: true, updatedAt: new Date() })
     .where(eq(chatConversations.id, id));
-  return { conversation: await snapshot(id) };
+  return { conversation: await readStaffConversation(id, scope) };
+}
+
+export async function claimConversation(id: string, userId: string) {
+  const db = await getDb();
+  const [member] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.role, "staff")))
+    .limit(1);
+  if (!member) return { error: "member" as const };
+
+  const [claimed] = await db
+    .update(chatConversations)
+    .set({ assignedUserId: userId, updatedAt: new Date() })
+    .where(and(eq(chatConversations.id, id), isNull(chatConversations.assignedUserId)))
+    .returning({ id: chatConversations.id });
+
+  if (!claimed) {
+    const [existing] = await db
+      .select({ assignedUserId: chatConversations.assignedUserId })
+      .from(chatConversations)
+      .where(eq(chatConversations.id, id))
+      .limit(1);
+    if (!existing) return { error: "missing" as const };
+    if (existing.assignedUserId !== userId) return { error: "taken" as const };
+  }
+
+  return { conversation: await readStaffConversation(id, { kind: "assigned", userId }) };
 }

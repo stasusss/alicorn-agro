@@ -1,6 +1,10 @@
 import { GET as getChat, POST as postChat } from "@/app/api/chat/route";
+import { POST as postClaim } from "@/app/api/staff/chat/[id]/assign/route";
 import { GET as getStaff } from "@/app/api/staff/chat/route";
+import { GET as getStaffChat } from "@/app/api/staff/chat/[id]/route";
 import { POST as postReply } from "@/app/api/staff/chat/[id]/reply/route";
+import { getDb } from "@/db";
+import { organizations, users } from "@/db/schema";
 import { buildChatSystemPrompt } from "@/lib/chat/prompt";
 import { site } from "@/lib/site";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,6 +50,15 @@ describe("chat prompt", () => {
     expect(prompt).toContain(site.phone);
     expect(prompt).toContain("Дослідження ґрунтів");
     expect(prompt).toContain("ClimateGuard");
+    expect(prompt).toContain("Plant Empowerment");
+    expect(prompt).toContain("ir. P.A.M. Geelen");
+    expect(prompt).toContain("ir. J.O. Voogt");
+    expect(prompt).toContain("ing. P.A. van Weel");
+    expect(prompt).toContain("https://www.plantempowerment.academy/en/");
+    expect(prompt).toContain("Plant Empowerment Digital Growing");
+    expect(prompt).toContain("не є послом");
+    expect(prompt).toContain("Не давай числових уставок");
+    expect(prompt).not.toContain("сторінка 1");
     expect(prompt).not.toContain("sk-super-secret-key");
     expect(prompt).not.toContain("telegram-secret-token");
     expect(prompt).not.toContain(process.env.AUTH_SECRET);
@@ -260,5 +273,93 @@ describe("staff chat", () => {
       request("/api/chat", { headers: { cookie: `chat_visitor=${"c".repeat(43)}` } }),
     );
     expect((await stranger.json()).conversation).toBeNull();
+  });
+
+  it("lets a staff member claim a new chat and keeps it from the others", async () => {
+    const db = await getDb();
+    const [org] = await db
+      .insert(organizations)
+      .values({ name: "Команда", latitude: 50.45, longitude: 30.52 })
+      .returning();
+    const [first] = await db
+      .insert(users)
+      .values({
+        organizationId: org.id,
+        email: "first.staff@example.com",
+        passwordHash: "hash",
+        name: "Перший",
+        role: "staff",
+      })
+      .returning();
+    const [second] = await db
+      .insert(users)
+      .values({
+        organizationId: org.id,
+        email: "second.staff@example.com",
+        passwordHash: "hash",
+        name: "Другий",
+        role: "staff",
+      })
+      .returning();
+
+    const created = await postChat(
+      request("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "Нове звернення для взяття 8831" }),
+      }),
+    );
+    const id = ((await created.json()).conversation.id) as string;
+    const params = { params: Promise.resolve({ id }) };
+
+    authMock.mockResolvedValue({
+      user: { email: "alicorn-agro@gmail.com", role: "admin", id: "admin-1", organizationId: org.id },
+    });
+    expect((await postClaim(request(`/api/staff/chat/${id}/assign`, { method: "POST" }), params)).status).toBe(403);
+
+    authMock.mockResolvedValue({
+      user: { email: first.email, role: "staff", id: first.id, organizationId: org.id },
+    });
+    const queue = await getStaff(request("/api/staff/chat"));
+    const queued = (await queue.json()).conversations as { id: string }[];
+    expect(queued.some((item) => item.id === id)).toBe(true);
+    expect(
+      (
+        await postReply(
+          request(`/api/staff/chat/${id}/reply`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: "Рано відповідати" }),
+          }),
+          params,
+        )
+      ).status,
+    ).toBe(404);
+
+    const claim = await postClaim(request(`/api/staff/chat/${id}/assign`, { method: "POST" }), params);
+    expect(claim.status).toBe(200);
+    expect((await claim.json()).conversation.assignedUserId).toBe(first.id);
+
+    authMock.mockResolvedValue({
+      user: { email: second.email, role: "staff", id: second.id, organizationId: org.id },
+    });
+    const hidden = await getStaff(request("/api/staff/chat"));
+    const hiddenIds = ((await hidden.json()).conversations as { id: string }[]).map((item) => item.id);
+    expect(hiddenIds).not.toContain(id);
+    expect((await postClaim(request(`/api/staff/chat/${id}/assign`, { method: "POST" }), params)).status).toBe(409);
+    expect((await getStaffChat(request(`/api/staff/chat/${id}`), params)).status).toBe(404);
+
+    authMock.mockResolvedValue({
+      user: { email: first.email, role: "staff", id: first.id, organizationId: org.id },
+    });
+    const reply = await postReply(
+      request(`/api/staff/chat/${id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "Взяв цей чат." }),
+      }),
+      params,
+    );
+    expect(reply.status).toBe(200);
   });
 });

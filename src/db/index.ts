@@ -270,6 +270,22 @@ async function ensureOperatorSchema(db: Db) {
     );
   `);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS leads_created_idx ON leads(created_at);`);
+  await db.execute(sql`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'staff'`);
+  await db.execute(sql`
+    ALTER TABLE chat_conversations
+    ADD COLUMN IF NOT EXISTS assigned_user_id uuid REFERENCES users(id) ON DELETE SET NULL
+  `);
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS chat_conversations_assignee_idx ON chat_conversations(assigned_user_id);
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS knowledge_documents (
+      id text PRIMARY KEY,
+      body text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      updated_by uuid REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
 }
 
 export async function getDb(): Promise<Db> {

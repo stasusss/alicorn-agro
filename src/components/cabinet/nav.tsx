@@ -1,7 +1,7 @@
 "use client";
 
 import { logoutAction } from "@/lib/actions/auth";
-import { Bell, ChartLine, FileText, LayoutGrid, MessagesSquare } from "lucide-react";
+import { Bell, BookOpen, ChartLine, FileText, LayoutGrid, MessagesSquare, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -12,14 +12,28 @@ const clientLinks = [
   { href: "/cabinet/export", label: "Звіти", icon: FileText },
 ];
 
-export function CabinetNav({ userEmail, admin = false }: { userEmail: string; admin?: boolean }) {
+export function CabinetNav({
+  userEmail,
+  role = "client",
+}: {
+  userEmail: string;
+  role?: "client" | "admin" | "staff";
+}) {
   const pathname = usePathname();
-  const links = admin
-    ? [
-        { href: "/cabinet", label: "Огляд", icon: LayoutGrid },
-        { href: "/cabinet/chats", label: "Чати", icon: MessagesSquare },
-      ]
-    : clientLinks;
+  const links =
+    role === "admin"
+      ? [
+          { href: "/cabinet", label: "Огляд", icon: LayoutGrid },
+          { href: "/cabinet/chats", label: "Чати", icon: MessagesSquare },
+          { href: "/cabinet/knowledge", label: "Знання", icon: BookOpen },
+          { href: "/cabinet/team", label: "Команда", icon: Users },
+        ]
+      : role === "staff"
+        ? [
+            { href: "/cabinet/chats", label: "Чати", icon: MessagesSquare },
+            { href: "/cabinet/knowledge", label: "Знання", icon: BookOpen },
+          ]
+        : clientLinks;
 
   return (
     <>
@@ -73,7 +87,7 @@ export function CabinetNav({ userEmail, admin = false }: { userEmail: string; ad
         className="fixed inset-x-0 bottom-0 z-40 border-t border-black/[0.06] bg-[#f5f5f7]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
         aria-label="Розділи кабінету"
       >
-        <div className={`grid ${links.length === 2 ? "grid-cols-2" : "grid-cols-4"}`}>
+        <div className={`grid ${links.length > 2 ? "grid-cols-4" : "grid-cols-2"}`}>
           {links.map((link) => {
             const active = isActive(pathname, link.href);
             const Icon = link.icon;

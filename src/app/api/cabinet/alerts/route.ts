@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { alertRules } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { canReadMeasurements } from "@/lib/cabinet/measurement-access";
 import { logger, requestIdFrom } from "@/lib/log";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -26,6 +27,9 @@ export async function GET(request: Request) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "alerts" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const db = await getDb();
     const rules = await db
@@ -47,6 +51,9 @@ export async function POST(request: Request) {
     if (!session?.user?.organizationId) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "alerts" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const json = await request.json().catch(() => null);

@@ -20,7 +20,7 @@ export const alertMetricEnum = pgEnum("alert_metric", [
 ]);
 export const alertOperatorEnum = pgEnum("alert_operator", ["gt", "lt", "gte", "lte"]);
 export const alertTargetEnum = pgEnum("alert_target", ["sensor", "all_avg"]);
-export const userRoleEnum = pgEnum("user_role", ["client", "admin"]);
+export const userRoleEnum = pgEnum("user_role", ["client", "admin", "staff"]);
 export const chatStatusEnum = pgEnum("chat_status", ["ai", "human", "closed"]);
 export const chatRoleEnum = pgEnum("chat_role", ["visitor", "assistant", "staff"]);
 
@@ -186,6 +186,7 @@ export const chatConversations = pgTable(
     visitorName: text("visitor_name"),
     visitorPhone: text("visitor_phone"),
     pageUrl: text("page_url"),
+    assignedUserId: uuid("assigned_user_id").references(() => users.id, { onDelete: "set null" }),
     ipHash: text("ip_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -195,6 +196,7 @@ export const chatConversations = pgTable(
     uniqueIndex("chat_conversations_token_idx").on(table.visitorTokenHash),
     index("chat_conversations_ip_created_idx").on(table.ipHash, table.createdAt),
     index("chat_conversations_last_message_idx").on(table.lastMessageAt),
+    index("chat_conversations_assignee_idx").on(table.assignedUserId),
   ],
 );
 
@@ -228,6 +230,13 @@ export const leads = pgTable("leads", {
   notes: text("notes").notNull().default(""),
   ipHash: text("ip_hash").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const knowledgeDocuments = pgTable("knowledge_documents", {
+  id: text("id").primaryKey(),
+  body: text("body").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
 });
 
 export type ChatConversation = typeof chatConversations.$inferSelect;

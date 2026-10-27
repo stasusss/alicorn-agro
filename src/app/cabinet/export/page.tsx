@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 
 export default async function ExportPage() {
   const session = await auth();
+  if (session?.user?.role === "staff") redirect("/cabinet/chats");
   if (session?.user?.role === "admin") redirect("/cabinet");
 
   return (

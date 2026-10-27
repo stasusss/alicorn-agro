@@ -8,13 +8,13 @@ declare module "next-auth" {
       email: string;
       name?: string | null;
       organizationId: string;
-      role: "client" | "admin";
+      role: "client" | "admin" | "staff";
     };
   }
 
   interface User {
     organizationId?: string;
-    role?: "client" | "admin";
+    role?: "client" | "admin" | "staff";
   }
 }
 

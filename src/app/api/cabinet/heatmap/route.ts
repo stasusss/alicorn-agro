@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { canReadMeasurements } from "@/lib/cabinet/measurement-access";
 import { getHeatmapFrames } from "@/lib/cabinet/queries";
 import { logger, requestIdFrom } from "@/lib/log";
 import { NextResponse } from "next/server";
@@ -18,6 +19,9 @@ export async function GET(request: Request) {
     if (!session?.user?.organizationId) {
       logger.warn({ msg: "cabinet_unauthorized", requestId, route: "heatmap" });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canReadMeasurements(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const url = new URL(request.url);

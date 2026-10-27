@@ -47,7 +47,7 @@ export function readCookie(request: Request, name: string) {
 }
 
 export function isChatOperator(email: string | null | undefined, role?: string | null) {
-  if (role === "admin") return true;
+  if (role === "admin" || role === "staff") return true;
   if (!email) return false;
   const allowed = (process.env.CHAT_OPERATOR_EMAILS ?? "")
     .split(",")

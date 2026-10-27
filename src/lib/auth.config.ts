@@ -19,7 +19,8 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.sub ?? "";
         session.user.organizationId = (token.organizationId as string) ?? "";
-        session.user.role = token.role === "admin" ? "admin" : "client";
+        session.user.role =
+          token.role === "admin" || token.role === "staff" ? token.role : "client";
       }
       return session;
     },
