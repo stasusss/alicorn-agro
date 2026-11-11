@@ -29,8 +29,8 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Production (Hetzner + Neon)
+## Production (Hetzner)
 
-Self-host with Docker Compose and Caddy; the database stays on Neon.
+Docker Compose on the VPS: Postgres, the app, and Caddy. The live domain is `alicorn-agro.com.ua`.
 
-See [docs/deploy.md](docs/deploy.md) for VPS bootstrap, DNS (`alicorn-agro.com.ua`), env, cutover, and verification.
+Day-to-day work goes on `main` and deploys straight to that server. The Vercel `dev` site is only for a change that could break production. See [docs/deploy.md](docs/deploy.md), section «Гілки і база».

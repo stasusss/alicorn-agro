@@ -156,16 +156,22 @@ ssh deploy@SERVER_IP 'cd /opt/alicorn && docker compose up -d --build'
 
 ## 8. Гілки і база
 
+Над проєктом працює один розробник. Звичайний порядок: коміт у `main` і пуш `main`. Після зелених тестів workflow `deploy` викладає цей коміт на Hetzner, домен `alicorn-agro.com.ua`. Окремо в `dev` не пушимо.
+
+`dev` і сайт https://alicorn-agro-rho.vercel.app потрібні лише коли зміна складна або новий функціонал може зламати бойовий сайт: схема бази, вхід, прийом даних зі шлюзів, сам деплой, новий потік у кабінеті. Тоді спочатку пуш у `dev`, перевірка на Vercel, і лише після цього той самий код у `main`. Дрібні правки, тексти, база знань і виправлення без нового потоку їдуть одразу в `main`.
+
+Це рішення прийняте. Не пропонуй повертатися до схеми «завжди спочатку dev».
+
 | Куди пушиш | Що оновлюється |
 | --- | --- |
-| `dev` | Vercel, https://alicorn-agro-rho.vercel.app. У проєкті Vercel ця гілка стоїть як Production (Settings → Environments → Production → Branch Tracking). |
-| `main` | Hetzner, після зелених тестів. Домен `alicorn-agro.com.ua` сюди і веде. |
+| `dev` | Лише ризикова перевірка. Vercel, https://alicorn-agro-rho.vercel.app. У проєкті Vercel ця гілка стоїть як Production (Settings → Environments → Production → Branch Tracking). |
+| `main` | Звичайний шлях. Hetzner після зелених тестів. Домен `alicorn-agro.com.ua` сюди і веде. |
 
 `output: "standalone"` у `next.config.ts` вмикається лише поза Vercel. На Vercel він ламає збірку, на Hetzner без нього немає Docker-сервера. `AUTH_URL` на Vercel не задавати: інакше вхід у кабінет на `*.vercel.app` перекине на домен замовника.
 
 Бази розділені. Бойові покази, користувачі й шлюзи лежать у Postgres на VPS. Гілка Neon `vercel-dev` лишається копією для Vercel: її connection string стоїть у `DATABASE_URL` середовищ Production і Preview. Запис із dev у бойову базу не потрапляє. Хост `neon.tech` у коді йде через драйвер Neon, будь-який інший Postgres — через звичайний `pg`.
 
-Не підставляй URL Vercel на Hetzner. Нову схему спочатку перевіряй на `vercel-dev`, і лише потім застосовуй до Postgres на сервері.
+Не підставляй URL Vercel на Hetzner. Схему, яка може зіпсувати бойові дані, спочатку перевір на `vercel-dev`. Решта змін приїжджає на Postgres сервера разом із `main`.
 
 `GET /api/health` відповідає 200, якщо процес живий, і базу не питає. Docker перевіряє його кожні 30 секунд; якби там був `select 1`, Neon не зміг би заснути. Коли шлюз мовчить, compute засинає за 5 хвилин. Поки датчики шлють пакет щохвилини, база все одно не спить.
 
