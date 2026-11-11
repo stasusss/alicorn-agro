@@ -50,6 +50,10 @@ identity.txt
 # vercel
 .vercel
 
+# local model asset and a nested ignore that should not be committed
+/3dmodel.glb
+/scripts/.gitignore
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
