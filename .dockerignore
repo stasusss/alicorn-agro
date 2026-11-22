@@ -11,7 +11,7 @@ backups
 *.dump
 *.dump.age
 identity.txt
-3dmodel.glb
+/3dmodel.glb
 *.md
 !docs/**
 tests

@@ -20,7 +20,7 @@ rsync -az --delete \
   --exclude '.env.*' \
   --exclude '.vercel' \
   --exclude 'coverage' \
-  --exclude '3dmodel.glb' \
+  --exclude '/3dmodel.glb' \
   "$ROOT/" "${HOST}:/opt/alicorn/"
 
 echo "Synced to ${HOST}:/opt/alicorn"
