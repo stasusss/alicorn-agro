@@ -7,6 +7,10 @@ export const site = {
   phone: "+380 934 5280 83",
   phoneHref: "tel:+380934528083",
   telegramHref: "https://t.me/+380934528083",
+  developer: {
+    name: "ClearOps",
+    url: "https://clearops-ua.vercel.app/",
+  },
 } as const;
 
 export const navItems = [

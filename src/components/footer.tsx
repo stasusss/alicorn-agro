@@ -63,8 +63,23 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/10">
-        <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-cream/50 sm:px-6 lg:px-8">
-          © 2026 Alicorn Agro. Усі права захищені.
+        <p className="mx-auto max-w-6xl px-4 py-5 text-xs leading-5 text-cream/50 sm:px-6 lg:px-8">
+          <span className="inline-block">© 2026 Alicorn Agro. Усі права захищені.</span>
+          <span className="mx-2 hidden text-cream/30 sm:inline" aria-hidden>
+            ·
+          </span>
+          <span className="mt-1 block sm:mt-0 sm:inline">
+            Розробка сайту{" "}
+            <a
+              href={site.developer.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-6 items-center text-cream/75 underline decoration-cream/25 underline-offset-4 transition-colors hover:text-white hover:decoration-white/70"
+            >
+              {site.developer.name}
+              <span className="sr-only"> (відкривається в новій вкладці)</span>
+            </a>
+          </span>
         </p>
       </div>
     </footer>
